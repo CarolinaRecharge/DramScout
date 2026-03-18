@@ -127,12 +127,56 @@ body {
   border: 1.5px solid var(--ink);
 }
 
+/* ─── TAB BAR ────────────────────────────────────────────────────────────── */
+.tab-bar {
+  position: fixed;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  height: 40px;
+  background: var(--ink);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  z-index: 95;
+}
+
+.tab-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-bottom: 2px;
+}
+
+.tab-btn:hover { color: var(--parchment); }
+
+.tab-btn.active {
+  color: var(--gold-light);
+  border-bottom-color: var(--gold);
+}
+
+.tab-btn-icon { font-size: 13px; }
+
 /* ─── MAP SECTION ─────────────────────────────────────────────────────────── */
 .map-section {
   position: relative;
   width: 100%;
   height: 50vh;
-  margin-top: 52px;
+  margin-top: 92px;
   background: repeating-linear-gradient(
     45deg,
     rgba(193,125,14,0.03) 0px,
@@ -252,7 +296,7 @@ body {
 /* ─── FILTER STRIP ────────────────────────────────────────────────────────── */
 .filter-strip {
   position: sticky;
-  top: 52px;
+  top: 92px;
   z-index: 80;
   background: var(--page);
   border-top: 1px solid var(--rule);
@@ -545,6 +589,241 @@ body {
 }
 
 .load-more-btn:hover { color: var(--parchment); }
+
+/* ─── EVENTS VIEW ─────────────────────────────────────────────────────────── */
+.events-section {
+  padding: 0 0 120px;
+  margin-top: 92px;
+}
+
+.events-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 12px;
+}
+
+.event-card {
+  margin: 0 12px 12px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  transition: border-color 0.15s;
+}
+
+.event-card:hover { border-color: var(--worn); }
+
+.event-card-top {
+  border-top: 2px solid var(--gold);
+  padding: 12px 14px 10px;
+}
+
+.event-card-top.status-today { border-top-color: #5DB85A; }
+.event-card-top.status-past  { border-top-color: var(--worn); }
+
+.event-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.event-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.event-status-badge.upcoming {
+  background: var(--gold-glow);
+  color: var(--gold-light);
+}
+
+.event-status-badge.today {
+  background: rgba(61,122,58,0.2);
+  color: #5DB85A;
+}
+
+.event-status-badge.past {
+  background: rgba(79,59,26,0.3);
+  color: var(--ghost);
+}
+
+.event-countdown {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--ghost);
+  letter-spacing: 0.04em;
+}
+
+.event-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--paper);
+  line-height: 1.15;
+  margin-bottom: 3px;
+}
+
+.event-store {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--parchment);
+  margin-bottom: 2px;
+}
+
+.event-city {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--ghost);
+  margin-bottom: 10px;
+}
+
+.event-datetime {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold-light);
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+
+.event-bottles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.event-divider {
+  height: 1px;
+  background: var(--rule);
+  margin: 0 14px;
+}
+
+.event-rules {
+  padding: 12px 14px;
+}
+
+.event-rules-title {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 10px;
+}
+
+.event-rule-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 9px;
+  align-items: flex-start;
+}
+
+.event-rule-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+  margin-top: 1px;
+}
+
+.event-rule-content {}
+
+.event-rule-label {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--parchment);
+  display: block;
+  margin-bottom: 1px;
+}
+
+.event-rule-text {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--ghost);
+  line-height: 1.4;
+}
+
+.event-card-footer {
+  padding: 10px 14px 13px;
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid var(--rule);
+}
+
+.btn-rsvp {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--gold);
+  background: var(--gold-glow);
+  color: var(--gold-light);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: 44px;
+}
+
+.btn-rsvp:hover { background: rgba(193,125,14,0.25); }
+
+.btn-rsvp.going {
+  background: rgba(61,122,58,0.15);
+  border-color: var(--fresh);
+  color: #5DB85A;
+}
+
+.btn-share {
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: 44px;
+}
+
+.btn-share:hover {
+  border-color: var(--worn);
+  color: var(--parchment);
+}
+
+.event-attendees {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--ghost);
+  text-align: center;
+  padding: 0 14px 12px;
+  letter-spacing: 0.04em;
+}
 
 /* ─── FAB ─────────────────────────────────────────────────────────────────── */
 .fab {
@@ -1054,6 +1333,150 @@ const INITIAL_SIGHTINGS = [
   { id: '12', store: 'Clayton ABC', city: 'Clayton', state: 'NC', lat: 35.6493, lng: -78.4569, bottles: ["Four Roses Small Batch Select"], reporter: 'johnston_co_pours', hoursAgo: 160, confirmations: 2, notes: null, dist: '21.4' },
 ].map(s => ({ ...s, createdAt: makeCreatedAt(s.hoursAgo) }))
 
+// ─── EVENTS DATA ──────────────────────────────────────────────────────────
+// Dates relative to a fixed reference so demo always looks realistic
+const BASE = new Date('2026-03-18T00:00:00')
+function eventDate(daysOffset, hour, min = 0) {
+  const d = new Date(BASE)
+  d.setDate(d.getDate() + daysOffset)
+  d.setHours(hour, min, 0, 0)
+  return d
+}
+
+const EVENTS = [
+  {
+    id: 'e1',
+    name: "Blanton's Allocation Drop",
+    store: 'Sandy Forks ABC #01',
+    city: 'Raleigh', state: 'NC',
+    date: eventDate(1, 9, 0),   // tomorrow 9 AM
+    bottles: ["Blanton's Original", "Blanton's Gold"],
+    expectedUnits: '~24 bottles total',
+    attendees: 31,
+    rules: {
+      parking: 'Street parking on Sandy Forks Rd. Store lot is first-come, do not block fire lane.',
+      overnight: 'No overnight. Line forms at 7:00 AM day-of. Wristbands distributed at 8:45 AM.',
+      limit: '1 bottle per customer. ABC policy enforced — no exceptions.',
+      id: 'Valid government-issued ID required. Must be 21+.',
+      notes: "Manager confirmed shipment arriving Tuesday evening. Drop expected to proceed as scheduled. No rainchecks if sold out.",
+    },
+  },
+  {
+    id: 'e2',
+    name: "Weller Wednesday Drop",
+    store: 'Village District ABC #08',
+    city: 'Raleigh', state: 'NC',
+    date: eventDate(0, 10, 0),  // today 10 AM
+    bottles: ["Weller Special Reserve", "Weller 12yr", "Weller Full Proof"],
+    expectedUnits: '~36 bottles across all three expressions',
+    attendees: 58,
+    rules: {
+      parking: 'Garage parking available at Village District — first 2 hrs free.',
+      overnight: 'No camping. Line begins at 8:30 AM. Staff will not acknowledge a line before that time.',
+      limit: '1 bottle per person per expression. Max 2 Weller labels per customer.',
+      id: 'Valid ID required. One ID = one person = one purchase slot.',
+      notes: "High demand expected. Lottery system may be used at manager discretion if line exceeds 40 people at open.",
+    },
+  },
+  {
+    id: 'e3',
+    name: "Eagle Rare Saturday Release",
+    store: 'North Hills ABC #12',
+    city: 'Raleigh', state: 'NC',
+    date: eventDate(3, 8, 30),
+    bottles: ["Eagle Rare 10yr"],
+    expectedUnits: '~18 bottles',
+    attendees: 22,
+    rules: {
+      parking: 'North Hills mall lot. Do not park in handicap spaces. Overflow on Lassiter Mill Rd.',
+      overnight: 'No overnight queuing permitted by mall security. Line begins at 7:00 AM.',
+      limit: '1 bottle per customer. Photo ID matched to purchase.',
+      id: 'Must present ID at time of purchase. Proxy buying not permitted.',
+      notes: "Community tip: The store opens the side entrance on weekends — line up at the right side door, not the main entrance.",
+    },
+  },
+  {
+    id: 'e4',
+    name: "Four Roses LE & SiB Release",
+    store: 'Cary Crossroads ABC',
+    city: 'Cary', state: 'NC',
+    date: eventDate(8, 9, 0),
+    bottles: ["Four Roses Limited Edition", "Four Roses Single Barrel"],
+    expectedUnits: '~12 LE + ~20 SiB',
+    attendees: 44,
+    rules: {
+      parking: 'Cary Crossroads shopping center lot. Ample parking, no issues typically.',
+      overnight: 'No overnight. Manager starts list at 8:00 AM — must be present to add name. List closes at 8:55 AM.',
+      limit: '1 LE per customer, 1 SiB per customer. Separate transactions required.',
+      id: 'Government-issued ID. Name on list must match ID exactly.',
+      notes: "This store uses a written name list rather than a physical line — highly recommended to arrive early to sign it. Releases tend to go smoothly here.",
+    },
+  },
+  {
+    id: 'e5',
+    name: "E.H. Taylor Barrel Proof Drop",
+    store: 'Morrisville Parkway ABC',
+    city: 'Morrisville', state: 'NC',
+    date: eventDate(14, 9, 0),
+    bottles: ["E.H. Taylor Barrel Proof", "E.H. Taylor Small Batch"],
+    expectedUnits: 'Unknown — single case confirmed',
+    attendees: 17,
+    rules: {
+      parking: 'Store strip mall lot. Shared with nail salon — be courteous.',
+      overnight: 'No overnight. Line at 7:30 AM. Manager will not open early.',
+      limit: '1 bottle total per customer across both expressions.',
+      id: 'ID required. Under no circumstances will staff hold bottles.',
+      notes: "Small allocation — likely 6-12 bottles combined. Expect a short but serious line. Store has been known to call the police if disputes arise.",
+    },
+  },
+  {
+    id: 'e6',
+    name: "Buffalo Trace Friday Restock",
+    store: 'Durham Central ABC',
+    city: 'Durham', state: 'NC',
+    date: eventDate(-2, 9, 0),  // 2 days ago — PAST
+    bottles: ["Buffalo Trace"],
+    expectedUnits: '~48 bottles',
+    attendees: 19,
+    rules: {
+      parking: 'Street parking on Foster St. Metered — bring quarters or use ParkMobile.',
+      overnight: 'N/A — this was a standard shelf restock, no formal event.',
+      limit: '2 bottles per customer.',
+      id: 'ID required at checkout.',
+      notes: "PAST EVENT — sold out by 9:45 AM. Line formed organically starting around 8:15 AM.",
+    },
+  },
+]
+
+function getEventStatus(date) {
+  const now = new Date()
+  const diffMs = date - now
+  const diffHrs = diffMs / (1000 * 60 * 60)
+  if (diffHrs < -24) return 'past'
+  if (diffHrs < 2) return 'today'
+  return 'upcoming'
+}
+
+function formatEventDate(date) {
+  const opts = { weekday: 'short', month: 'short', day: 'numeric' }
+  const dateStr = date.toLocaleDateString('en-US', opts).toUpperCase()
+  const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  return `${dateStr} · ${timeStr}`
+}
+
+function getCountdown(date) {
+  const now = new Date()
+  const diffMs = date - now
+  if (diffMs < 0) {
+    const agoHrs = Math.abs(diffMs) / (1000 * 60 * 60)
+    if (agoHrs < 24) return `${Math.round(agoHrs)}h ago`
+    return `${Math.round(agoHrs / 24)}d ago`
+  }
+  const hrs = diffMs / (1000 * 60 * 60)
+  if (hrs < 24) return `in ${Math.round(hrs)}h`
+  return `in ${Math.round(hrs / 24)}d`
+}
+
 const FILTERS = ['ALL', "BLANTON'S", 'WELLER', 'EAGLE RARE', 'E.H. TAYLOR', 'FOUR ROSES', 'BUFFALO TRACE']
 
 const BOTTLE_OPTIONS = [
@@ -1147,6 +1570,8 @@ function makePinSVG(tier, isFresh) {
 
 // ─── MAIN APP ──────────────────────────────────────────────────────────────
 export default function App() {
+  const [activeTab, setActiveTab] = useState('scout')
+  const [rsvpd, setRsvpd] = useState(new Set())
   const [sightings, setSightings] = useState(INITIAL_SIGHTINGS)
   const [activeFilter, setActiveFilter] = useState('ALL')
   const [confirmed, setConfirmed] = useState(new Set())
@@ -1460,8 +1885,24 @@ export default function App() {
         </button>
       </header>
 
+      {/* ── TAB BAR ─────────────────────────────────────────────────── */}
+      <nav className="tab-bar">
+        <button
+          className={`tab-btn${activeTab === 'scout' ? ' active' : ''}`}
+          onClick={() => setActiveTab('scout')}
+        >
+          <span className="tab-btn-icon">🗺</span> SCOUT
+        </button>
+        <button
+          className={`tab-btn${activeTab === 'events' ? ' active' : ''}`}
+          onClick={() => setActiveTab('events')}
+        >
+          <span className="tab-btn-icon">📅</span> EVENTS
+        </button>
+      </nav>
+
       {/* ── MAP SECTION ─────────────────────────────────────────────── */}
-      <section className="map-section">
+      <section className="map-section" style={{ display: activeTab === 'scout' ? undefined : 'none' }}>
         <div id="map-container" ref={mapContainerRef} />
 
         {/* Badge */}
@@ -1492,7 +1933,7 @@ export default function App() {
       </section>
 
       {/* ── FILTER STRIP ────────────────────────────────────────────── */}
-      <div className="filter-strip">
+      <div className="filter-strip" style={{ display: activeTab === 'scout' ? undefined : 'none' }}>
         {FILTERS.map(f => (
           <button
             key={f}
@@ -1505,7 +1946,7 @@ export default function App() {
       </div>
 
       {/* ── SIGHTINGS FEED ──────────────────────────────────────────── */}
-      <section className="feed-section">
+      <section className="feed-section" style={{ display: activeTab === 'scout' ? undefined : 'none' }}>
         <div className="feed-header">
           <span className="feed-header-label">RECENT SIGHTINGS</span>
           <span className="feed-header-meta">{filteredSightings.length} REPORTS · LAST 7 DAYS</span>
@@ -1576,6 +2017,117 @@ export default function App() {
           </div>
         )}
       </section>
+
+      {/* ── EVENTS VIEW ─────────────────────────────────────────────── */}
+      {activeTab === 'events' && (
+        <section className="events-section">
+          <div className="events-header">
+            <span className="feed-header-label">UPCOMING DROPS</span>
+            <span className="feed-header-meta">{EVENTS.filter(e => getEventStatus(e.date) !== 'past').length} SCHEDULED</span>
+            <div className="feed-header-rule" />
+          </div>
+
+          {EVENTS.map(event => {
+            const status = getEventStatus(event.date)
+            const isGoing = rsvpd.has(event.id)
+            return (
+              <div key={event.id} className="event-card">
+                <div className={`event-card-top status-${status}`}>
+                  <div className="event-status-row">
+                    <span className={`event-status-badge ${status}`}>
+                      <span style={{
+                        width: 6, height: 6, borderRadius: '50%', display: 'inline-block',
+                        background: status === 'upcoming' ? 'var(--gold-light)' : status === 'today' ? '#5DB85A' : 'var(--ghost)',
+                        flexShrink: 0,
+                      }} />
+                      {status === 'upcoming' ? 'UPCOMING' : status === 'today' ? 'TODAY' : 'PAST'}
+                    </span>
+                    <span className="event-countdown">{getCountdown(event.date)}</span>
+                  </div>
+
+                  <div className="event-name">{event.name}</div>
+                  <div className="event-store">{event.store}</div>
+                  <div className="event-city">{event.city}, {event.state}</div>
+
+                  <div className="event-datetime">
+                    <span>📅</span>
+                    {formatEventDate(event.date)}
+                  </div>
+
+                  <div className="event-bottles">
+                    {event.bottles.map(b => (
+                      <span key={b} className="bottle-chip">🍾 {b}</span>
+                    ))}
+                  </div>
+                  {event.expectedUnits && (
+                    <div style={{ fontFamily: "'Courier Prime', monospace", fontSize: '10px', color: 'var(--ghost)', marginTop: 8, letterSpacing: '0.04em' }}>
+                      EST. STOCK · {event.expectedUnits}
+                    </div>
+                  )}
+                </div>
+
+                <div className="event-divider" />
+
+                <div className="event-rules">
+                  <div className="event-rules-title">Drop Rules & Info</div>
+                  <div className="event-rule-row">
+                    <span className="event-rule-icon">🅿️</span>
+                    <div className="event-rule-content">
+                      <span className="event-rule-label">Parking</span>
+                      <span className="event-rule-text">{event.rules.parking}</span>
+                    </div>
+                  </div>
+                  <div className="event-rule-row">
+                    <span className="event-rule-icon">🌙</span>
+                    <div className="event-rule-content">
+                      <span className="event-rule-label">Overnight / Line Policy</span>
+                      <span className="event-rule-text">{event.rules.overnight}</span>
+                    </div>
+                  </div>
+                  <div className="event-rule-row">
+                    <span className="event-rule-icon">🪪</span>
+                    <div className="event-rule-content">
+                      <span className="event-rule-label">ID Requirements</span>
+                      <span className="event-rule-text">{event.rules.id}</span>
+                    </div>
+                  </div>
+                  <div className="event-rule-row">
+                    <span className="event-rule-icon">📋</span>
+                    <div className="event-rule-content">
+                      <span className="event-rule-label">Bottle Limit</span>
+                      <span className="event-rule-text">{event.rules.limit}</span>
+                    </div>
+                  </div>
+                  <div className="event-rule-row">
+                    <span className="event-rule-icon">💬</span>
+                    <div className="event-rule-content">
+                      <span className="event-rule-label">Community Notes</span>
+                      <span className="event-rule-text">{event.rules.notes}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="event-card-footer">
+                  <button
+                    className={`btn-rsvp${isGoing ? ' going' : ''}`}
+                    onClick={() => setRsvpd(prev => { const n = new Set(prev); n.has(event.id) ? n.delete(event.id) : n.add(event.id); return n })}
+                    disabled={status === 'past'}
+                    style={status === 'past' ? { opacity: 0.4, cursor: 'default' } : {}}
+                  >
+                    {isGoing ? "✓ I'M GOING" : status === 'past' ? 'PAST EVENT' : "I'LL BE THERE"}
+                  </button>
+                  <button className="btn-share">SHARE</button>
+                </div>
+                <div className="event-attendees">
+                  {isGoing
+                    ? `You + ${event.attendees} others going`
+                    : `${event.attendees} people going`}
+                </div>
+              </div>
+            )
+          })}
+        </section>
+      )}
 
       {/* ── FAB ─────────────────────────────────────────────────────── */}
       <button className="fab" onClick={openSheet} aria-label="Post sighting">
