@@ -1303,6 +1303,8 @@ body {
 
 .pin-fresh .sonar-ring {
   animation: sonar 2s ease-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 /* Other option input */
