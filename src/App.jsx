@@ -1,4 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import {
+  supabase, getFingerprint,
+  fetchStores, fetchSightings, fetchEvents,
+  postSighting, confirmSighting, toggleEventRsvp,
+  subscribeToSightings,
+} from './supabase'
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
 const STYLES = `
@@ -1311,6 +1317,114 @@ body {
 .other-input {
   margin-top: 8px;
 }
+
+/* ─── STORE PICKER ────────────────────────────────────────────────────── */
+.store-picker-wrap {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.store-picker-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--card-2);
+  border: 1px solid var(--gold);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 10;
+  scrollbar-width: none;
+}
+
+.store-picker-dropdown::-webkit-scrollbar { display: none; }
+
+.store-picker-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--rule);
+  transition: background 0.1s;
+}
+
+.store-picker-item:hover { background: rgba(193,125,14,0.08); }
+.store-picker-item:last-child { border-bottom: none; }
+
+.store-picker-name {
+  display: block;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--paper);
+}
+
+.store-picker-addr {
+  display: block;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--ghost);
+  margin-top: 2px;
+  letter-spacing: 0.03em;
+}
+
+.store-picker-empty {
+  padding: 12px 14px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--ghost);
+}
+
+.store-picker-hint {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--ghost);
+  padding: 4px 2px 0;
+  display: block;
+}
+
+.store-picker-selected-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: #5DB85A;
+  letter-spacing: 0.04em;
+}
+
+/* ─── LOADING / STATUS ────────────────────────────────────────────────── */
+.feed-loading {
+  padding: 32px 20px;
+  text-align: center;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--ghost);
+  letter-spacing: 0.1em;
+}
+
+.db-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--ghost);
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--rule);
+}
+
+.db-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Map store dot marker */
+.store-dot { background: none; border: none; }
 `
 
 // ─── MOCK DATA ─────────────────────────────────────────────────────────────
@@ -1574,6 +1688,14 @@ function makePinSVG(tier, isFresh) {
 export default function App() {
   const [activeTab, setActiveTab] = useState('scout')
   const [rsvpd, setRsvpd] = useState(new Set())
+
+  // ── Supabase data (null = not loaded yet / not configured) ─────────────
+  const [stores, setStores] = useState([])
+  const [dbSightings, setDbSightings] = useState(null)
+  const [dbEvents, setDbEvents] = useState(null)
+  const [dbReady, setDbReady] = useState(false)
+
+  // ── Local/mock fallback sightings ──────────────────────────────────────
   const [sightings, setSightings] = useState(INITIAL_SIGHTINGS)
   const [activeFilter, setActiveFilter] = useState('ALL')
   const [confirmed, setConfirmed] = useState(new Set())
@@ -1590,12 +1712,52 @@ export default function App() {
   const [notes, setNotes] = useState('')
   const [useLocation, setUseLocation] = useState(true)
   const [otherBottle, setOtherBottle] = useState('')
+  const [reporterHandle, setReporterHandle] = useState('')
+  // Store picker
+  const [storeSearch, setStoreSearch] = useState('')
+  const [selectedStore, setSelectedStore] = useState(null)
+  const [showStorePicker, setShowStorePicker] = useState(false)
 
   const mapContainerRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const markersRef = useRef([])
+  const storeMarkersRef = useRef([])
   const leafletLoadedRef = useRef(false)
   const toastTimerRef = useRef(null)
+  const realtimeChannelRef = useRef(null)
+
+  // ── Supabase bootstrap ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!supabase) return  // demo mode — use mock data
+
+    // Load stores, sightings, and events in parallel
+    Promise.all([fetchStores(), fetchSightings(), fetchEvents()]).then(
+      ([storeData, sightingData, eventData]) => {
+        if (storeData.length)  setStores(storeData)
+        if (sightingData)      setDbSightings(sightingData)
+        if (eventData)         setDbEvents(eventData)
+        setDbReady(true)
+      }
+    )
+
+    // Real-time subscription — new sightings pushed from other users
+    realtimeChannelRef.current = subscribeToSightings(newRow => {
+      setDbSightings(prev => [newRow, ...(prev || [])])
+    })
+
+    return () => {
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current)
+      }
+    }
+  }, [])
+
+  // ── Draw store dots when stores + map are both ready ───────────────────
+  useEffect(() => {
+    if (stores.length && mapInstanceRef.current && leafletLoadedRef.current) {
+      drawStoreDots(stores, mapInstanceRef.current)
+    }
+  }, [stores, leafletLoadedRef.current])
 
   // ── Inject styles ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -1652,6 +1814,43 @@ export default function App() {
         mapInstanceRef.current = null
       }
     }
+  }, [])
+
+  // ── Draw store location dots (all NC ABC stores, muted) ────────────────
+  const drawStoreDots = useCallback((storeList, mapInst) => {
+    const L = window.L
+    if (!L || !mapInst) return
+
+    storeMarkersRef.current.forEach(m => m.remove())
+    storeMarkersRef.current = []
+
+    storeList.forEach(store => {
+      const icon = L.divIcon({
+        html: `<svg width="10" height="10" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="5" cy="5" r="3.5" fill="#3A2910" stroke="#4F3B1A" stroke-width="1" opacity="0.75"/>
+        </svg>`,
+        className: 'store-dot',
+        iconSize: [10, 10],
+        iconAnchor: [5, 5],
+        popupAnchor: [0, -8],
+      })
+
+      const popupHTML = `
+        <div class="popup-inner">
+          <div class="popup-store">${store.name}</div>
+          <div class="popup-meta">${store.address} · ${store.city}, ${store.state}</div>
+          <div class="popup-actions" style="margin-top:12px">
+            <button class="popup-btn" onclick="window.__dsOpenSheetAtStore('${store.id}','${store.name.replace(/'/g, "\\'")}','${store.city}',${store.lat},${store.lng})">
+              POST SIGHTING HERE
+            </button>
+          </div>
+        </div>
+      `
+      const marker = L.marker([store.lat, store.lng], { icon, zIndexOffset: -100 })
+      marker.bindPopup(popupHTML, { maxWidth: 280, className: 'ds-popup' })
+      marker.addTo(mapInst)
+      storeMarkersRef.current.push(marker)
+    })
   }, [])
 
   // ── Draw markers ───────────────────────────────────────────────────────
@@ -1734,28 +1933,70 @@ export default function App() {
     window.__dsOpenSheet = (id, store) => {
       setPrefillStore(store)
       setStoreName(store)
+      setStoreSearch(store)
+      setSheetOpen(true)
+    }
+    // Opened from a store dot — pre-fill with known store data
+    window.__dsOpenSheetAtStore = (storeId, storeName, city, lat, lng) => {
+      const storeObj = { id: storeId, name: storeName, city, lat: parseFloat(lat), lng: parseFloat(lng) }
+      setSelectedStore(storeObj)
+      setStoreSearch(storeName)
+      setStoreName(storeName)
+      setCityName(city)
       setSheetOpen(true)
     }
     return () => {
       delete window.__dsConfirm
       delete window.__dsOpenSheet
+      delete window.__dsOpenSheetAtStore
     }
   }, [])
 
-  // ── Redraw markers on filter or sightings change ───────────────────────
+  // ── Redraw markers when sightings, filter, or db state changes ─────────
   useEffect(() => {
     if (mapInstanceRef.current && leafletLoadedRef.current) {
-      drawMarkers(sightings, activeFilter, mapInstanceRef.current, confirmed)
+      const list = (dbSightings !== null ? dbSightings : sightings).map(s => ({
+        ...s,
+        store: s.store || s.store_name,
+        createdAt: s.createdAt ?? new Date(s.created_at ?? Date.now()).getTime(),
+        confirmations: s.confirmations ?? s.confirmation_count ?? 0,
+        dist: s.dist || '?',
+      }))
+      drawMarkers(list, activeFilter, mapInstanceRef.current, confirmed)
     }
-  }, [activeFilter, sightings, confirmed, drawMarkers])
+  }, [activeFilter, sightings, dbSightings, confirmed, drawMarkers])
 
-  // ── Filtered sightings for feed ────────────────────────────────────────
+  // ── Merge DB or mock sightings into a normalised shape ─────────────────
   const now = Date.now()
-  const filteredSightings = sightings.filter(s => {
-    const hoursOld = (now - s.createdAt) / (1000 * 60 * 60)
-    if (hoursOld > 336) return false
+
+  // Normalise a DB row to the same shape as mock sightings
+  function normaliseRow(s) {
+    const createdAt = s.createdAt ?? new Date(s.created_at).getTime()
+    return {
+      ...s,
+      store: s.store || s.store_name,
+      createdAt,
+      hoursAgo: (now - createdAt) / (1000 * 60 * 60),
+      confirmations: s.confirmations ?? s.confirmation_count ?? 0,
+      dist: s.dist || '?',
+    }
+  }
+
+  const allSightings = (dbSightings !== null ? dbSightings : sightings).map(normaliseRow)
+
+  const filteredSightings = allSightings.filter(s => {
+    if (s.hoursAgo > 336) return false
     return filterMatches(s, activeFilter)
   })
+
+  // Events: prefer DB data, fall back to hard-coded EVENTS array
+  const activeEvents = dbEvents !== null ? dbEvents.map(e => ({
+    ...e,
+    date: new Date(e.event_date),
+    bottles: e.bottles || [],
+    rules: e.rules || {},
+    attendees: e.attendee_count || 0,
+  })) : EVENTS
 
   // ── Near Me ────────────────────────────────────────────────────────────
   function handleNearMe() {
@@ -1789,12 +2030,17 @@ export default function App() {
   }
 
   // ── Confirm sighting ───────────────────────────────────────────────────
-  function handleConfirm(id) {
-    setConfirmed(prev => {
-      const next = new Set(prev)
-      next.add(id)
-      return next
-    })
+  async function handleConfirm(id) {
+    // Optimistic update first
+    setConfirmed(prev => { const n = new Set(prev); n.add(id); return n })
+    // Increment local counter
+    const updateCount = list => list.map(s =>
+      s.id === id ? { ...s, confirmations: (s.confirmations || 0) + 1 } : s
+    )
+    if (dbSightings) setDbSightings(prev => updateCount(prev || []))
+    else setSightings(prev => updateCount(prev))
+    // Persist to DB if available
+    if (supabase) await confirmSighting(id, getFingerprint())
   }
 
   // ── Show toast ─────────────────────────────────────────────────────────
@@ -1812,46 +2058,75 @@ export default function App() {
   }
 
   // ── Submit new sighting ────────────────────────────────────────────────
-  function handlePost() {
+  async function handlePost() {
     const bottleList = selectedBottles.includes('Other') && otherBottle.trim()
       ? [...selectedBottles.filter(b => b !== 'Other'), otherBottle.trim()]
       : selectedBottles
 
     if (!bottleList.length || !storeName.trim()) return
 
-    const newSighting = {
-      id: `new-${Date.now()}`,
-      store: storeName.trim(),
-      city: cityName.trim() || 'Unknown',
+    const fp = getFingerprint()
+    const handle = reporterHandle.trim() || ('scout_' + fp.slice(-4))
+
+    const lat = selectedStore?.lat ?? (35.7796 + (Math.random() - 0.5) * 0.2)
+    const lng = selectedStore?.lng ?? (-78.6382 + (Math.random() - 0.5) * 0.2)
+
+    const localSighting = {
+      id: `local-${Date.now()}`,
+      store_name: storeName.trim(),
+      store: storeName.trim(),        // compat with mock data path
+      city: cityName.trim() || selectedStore?.city || 'Unknown',
       state: 'NC',
-      lat: 35.7796 + (Math.random() - 0.5) * 0.2,
-      lng: -78.6382 + (Math.random() - 0.5) * 0.2,
+      lat, lng,
       bottles: bottleList,
-      reporter: 'you',
+      reporter: handle,
+      store_id: selectedStore?.id || null,
       hoursAgo: 0,
       createdAt: Date.now(),
+      created_at: new Date().toISOString(),
       confirmations: 0,
+      confirmation_count: 0,
       notes: notes.trim() || null,
       dist: '0.1',
     }
 
-    setSightings(prev => [newSighting, ...prev])
+    // Close sheet and reset form immediately for fast feel
     setSheetOpen(false)
-
-    // Reset form
     setSelectedBottles([])
     setStoreName('')
     setCityName('')
     setNotes('')
     setOtherBottle('')
+    setReporterHandle('')
+    setStoreSearch('')
+    setSelectedStore(null)
     setPrefillStore('')
 
     // Fly to new pin
     setTimeout(() => {
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.flyTo([newSighting.lat, newSighting.lng], 14)
+        mapInstanceRef.current.flyTo([lat, lng], 15)
       }
     }, 300)
+
+    if (supabase) {
+      // Post to DB — realtime subscription will push it back, but also add locally
+      const saved = await postSighting({
+        store_id: selectedStore?.id || null,
+        store_name: storeName.trim(),
+        city: localSighting.city,
+        state: 'NC',
+        lat, lng,
+        bottles: bottleList,
+        reporter: handle,
+        notes: localSighting.notes,
+      })
+      // Add the DB row (with real UUID) or fall back to local object
+      const row = saved ? { ...saved, store: saved.store_name, confirmations: 0 } : localSighting
+      setDbSightings(prev => [row, ...(prev || [])])
+    } else {
+      setSightings(prev => [localSighting, ...prev])
+    }
 
     showToast()
   }
@@ -1864,9 +2139,9 @@ export default function App() {
   function closeSheet() {
     setSheetOpen(false)
     setPrefillStore('')
-    if (!prefillStore) {
-      setStoreName('')
-    }
+    setStoreSearch('')
+    setSelectedStore(null)
+    if (!prefillStore) setStoreName('')
   }
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -1933,6 +2208,16 @@ export default function App() {
           ))}
         </div>
       </section>
+
+      {/* ── DB STATUS BAR ───────────────────────────────────────────── */}
+      {activeTab === 'scout' && (
+        <div className="db-status-bar">
+          <span className="db-status-dot" style={{ background: supabase ? (dbReady ? '#5DB85A' : '#C17D0E') : '#4F3B1A' }} />
+          {supabase
+            ? (dbReady ? `LIVE · ${filteredSightings.length} SIGHTINGS · ${stores.length} STORES MAPPED` : 'CONNECTING...')
+            : `DEMO MODE · ${filteredSightings.length} MOCK SIGHTINGS`}
+        </div>
+      )}
 
       {/* ── FILTER STRIP ────────────────────────────────────────────── */}
       <div className="filter-strip" style={{ display: activeTab === 'scout' ? undefined : 'none' }}>
@@ -2029,7 +2314,7 @@ export default function App() {
             <div className="feed-header-rule" />
           </div>
 
-          {EVENTS.map(event => {
+          {activeEvents.map(event => {
             const status = getEventStatus(event.date)
             const isGoing = rsvpd.has(event.id)
             return (
@@ -2112,7 +2397,11 @@ export default function App() {
                 <div className="event-card-footer">
                   <button
                     className={`btn-rsvp${isGoing ? ' going' : ''}`}
-                    onClick={() => setRsvpd(prev => { const n = new Set(prev); n.has(event.id) ? n.delete(event.id) : n.add(event.id); return n })}
+                    onClick={async () => {
+                      const going = rsvpd.has(event.id)
+                      setRsvpd(prev => { const n = new Set(prev); going ? n.delete(event.id) : n.add(event.id); return n })
+                      if (supabase) await toggleEventRsvp(event.id, getFingerprint(), going)
+                    }}
                     disabled={status === 'past'}
                     style={status === 'past' ? { opacity: 0.4, cursor: 'default' } : {}}
                   >
@@ -2170,27 +2459,70 @@ export default function App() {
             </div>
           )}
 
-          {/* Store Name */}
-          <div className="field-group">
-            <label className="field-label">STORE NAME</label>
+          {/* Store Picker */}
+          <label className="field-label">STORE</label>
+          <div className="store-picker-wrap">
             <input
               className="text-input"
-              placeholder="Which store?"
-              value={storeName}
-              onChange={e => setStoreName(e.target.value)}
+              placeholder={stores.length ? 'Search store name or city...' : 'Store name...'}
+              value={storeSearch}
+              onChange={e => {
+                setStoreSearch(e.target.value)
+                setStoreName(e.target.value)
+                setSelectedStore(null)
+                setShowStorePicker(true)
+              }}
+              onFocus={() => setShowStorePicker(true)}
+              onBlur={() => setTimeout(() => setShowStorePicker(false), 180)}
+              style={{ borderRadius: showStorePicker && storeSearch.length > 0 ? '8px 8px 0 0' : undefined }}
             />
+            {showStorePicker && storeSearch.length > 0 && (() => {
+              const matches = stores.filter(s =>
+                s.name.toLowerCase().includes(storeSearch.toLowerCase()) ||
+                s.city.toLowerCase().includes(storeSearch.toLowerCase())
+              ).slice(0, 8)
+              return (
+                <div className="store-picker-dropdown">
+                  {matches.length > 0 ? matches.map(s => (
+                    <div key={s.id} className="store-picker-item"
+                      onMouseDown={() => {
+                        setSelectedStore(s)
+                        setStoreSearch(s.name)
+                        setStoreName(s.name)
+                        setCityName(s.city)
+                        setShowStorePicker(false)
+                      }}>
+                      <span className="store-picker-name">{s.name}</span>
+                      <span className="store-picker-addr">{s.address} · {s.city}, {s.state}</span>
+                    </div>
+                  )) : (
+                    <div className="store-picker-empty">No matches — will post as custom store</div>
+                  )}
+                </div>
+              )
+            })()}
+            {selectedStore && (
+              <div className="store-picker-selected-bar">
+                ✓ {selectedStore.address} · {selectedStore.city}, NC
+              </div>
+            )}
+            {!selectedStore && !stores.length && (
+              <span className="store-picker-hint">Connect Supabase to search all NC ABC stores</span>
+            )}
           </div>
 
-          {/* City */}
-          <div className="field-group">
-            <label className="field-label">CITY</label>
-            <input
-              className="text-input"
-              placeholder="City"
-              value={cityName}
-              onChange={e => setCityName(e.target.value)}
-            />
-          </div>
+          {/* City — only shown if no store selected from picker */}
+          {!selectedStore && (
+            <div className="field-group">
+              <label className="field-label">CITY</label>
+              <input
+                className="text-input"
+                placeholder="City"
+                value={cityName}
+                onChange={e => setCityName(e.target.value)}
+              />
+            </div>
+          )}
 
           {/* Notes */}
           <div className="field-group">
@@ -2203,6 +2535,17 @@ export default function App() {
               rows={3}
             />
             <span className="char-count">{140 - notes.length} REMAINING</span>
+          </div>
+
+          {/* Handle */}
+          <div className="field-group">
+            <label className="field-label">YOUR HANDLE (OPTIONAL)</label>
+            <input
+              className="text-input"
+              placeholder="@bourbonhunter_nc"
+              value={reporterHandle}
+              onChange={e => setReporterHandle(e.target.value.replace(/\s/g, '_').slice(0, 30))}
+            />
           </div>
 
           {/* Location toggle */}
