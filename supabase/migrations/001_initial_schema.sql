@@ -136,6 +136,5 @@ CREATE POLICY "event_rsvps_delete" ON event_rsvps
   FOR DELETE TO anon, authenticated USING (true);
 
 -- ── REALTIME ──────────────────────────────────────────────────────────────
--- Enable realtime for live sighting updates
-ALTER PUBLICATION supabase_realtime ADD TABLE sightings;
-ALTER PUBLICATION supabase_realtime ADD TABLE confirmations;
+-- Enable realtime via the Supabase Dashboard (cannot be done in SQL editor):
+--   Database → Replication → supabase_realtime → toggle ON for: sightings, confirmations
