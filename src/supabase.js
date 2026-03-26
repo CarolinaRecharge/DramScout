@@ -48,7 +48,7 @@ export async function fetchSightings() {
     .select('*')
     .gte('created_at', cutoff)
     .order('created_at', { ascending: false })
-  if (error) { console.warn('fetchSightings:', error.message); return null }
+  if (error) { console.error('fetchSightings:', error.message, error.code); return null }
   return data || []
 }
 
