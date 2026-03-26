@@ -3,8 +3,18 @@ import { createClient } from '@supabase/supabase-js'
 const url = import.meta.env.VITE_SUPABASE_URL
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// Returns null if env vars not set — app falls back to mock data
-export const supabase = (url && key) ? createClient(url, key) : null
+// Returns null if env vars are missing or invalid — app falls back to mock data
+function makeClient() {
+  if (!url || !key) return null
+  try {
+    new URL(url) // throws if url is not a valid URL
+    return createClient(url, key)
+  } catch {
+    console.warn('Dram Scout: VITE_SUPABASE_URL is not a valid URL — running in demo mode.')
+    return null
+  }
+}
+export const supabase = makeClient()
 
 // Anonymous per-browser fingerprint for deduplication (no auth required)
 export function getFingerprint() {
