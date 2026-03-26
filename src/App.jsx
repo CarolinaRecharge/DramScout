@@ -890,19 +890,16 @@ body {
   transform: translateX(-50%) translateY(100%);
   width: 100%;
   max-width: 480px;
+  height: 72dvh;
   max-height: 90dvh;
   background: var(--card);
   border-radius: 20px 20px 0 0;
   z-index: 310;
   transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  touch-action: pan-y;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
-
-.sheet::-webkit-scrollbar { display: none; }
 
 .sheet.open {
   transform: translateX(-50%) translateY(0);
@@ -912,10 +909,15 @@ body {
   display: flex;
   justify-content: center;
   padding: 12px 0 6px;
-  position: sticky;
-  top: 0;
   background: var(--card);
-  z-index: 1;
+  flex-shrink: 0;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.sheet-handle-wrap:active {
+  cursor: grabbing;
 }
 
 .sheet-handle {
@@ -923,11 +925,17 @@ body {
   height: 4px;
   border-radius: 2px;
   background: var(--worn);
+  transition: background 0.15s;
+}
+
+.sheet-handle-wrap:hover .sheet-handle {
+  background: var(--gold);
 }
 
 .sheet-header {
   padding: 4px 20px 16px;
   border-bottom: 1px solid var(--rule);
+  flex-shrink: 0;
 }
 
 .sheet-title {
@@ -941,6 +949,26 @@ body {
 
 .sheet-body {
   padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-width: thin;
+  scrollbar-color: var(--worn) transparent;
+}
+
+.sheet-body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sheet-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sheet-body::-webkit-scrollbar-thumb {
+  background: var(--worn);
+  border-radius: 2px;
 }
 
 .field-label {
@@ -1726,6 +1754,9 @@ export default function App() {
   const leafletLoadedRef = useRef(false)
   const toastTimerRef = useRef(null)
   const realtimeChannelRef = useRef(null)
+  const sheetRef = useRef(null)
+  const dragStartY = useRef(null)
+  const dragStartH = useRef(null)
 
   // ── Supabase bootstrap ─────────────────────────────────────────────────
   useEffect(() => {
@@ -2140,7 +2171,40 @@ export default function App() {
     setSheetOpen(true)
   }
 
+  function onHandlePointerDown(e) {
+    e.preventDefault()
+    dragStartY.current = e.clientY
+    dragStartH.current = sheetRef.current?.offsetHeight ?? 0
+
+    function onMove(ev) {
+      if (dragStartY.current === null) return
+      const dy = dragStartY.current - ev.clientY
+      const maxH = window.innerHeight * 0.9
+      const newH = Math.max(220, Math.min(maxH, dragStartH.current + dy))
+      if (sheetRef.current) {
+        sheetRef.current.style.transition = 'none'
+        sheetRef.current.style.height = newH + 'px'
+      }
+    }
+
+    function onUp() {
+      const h = sheetRef.current?.offsetHeight ?? 0
+      if (sheetRef.current) sheetRef.current.style.transition = ''
+      if (h < 260) {
+        if (sheetRef.current) sheetRef.current.style.height = ''
+        closeSheet()
+      }
+      dragStartY.current = null
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
+    }
+
+    document.addEventListener('pointermove', onMove)
+    document.addEventListener('pointerup', onUp)
+  }
+
   function closeSheet() {
+    if (sheetRef.current) sheetRef.current.style.height = ''
     setSheetOpen(false)
     setPrefillStore('')
     setStoreSearch('')
@@ -2432,11 +2496,12 @@ export default function App() {
       {/* ── BOTTOM SHEET ─────────────────────────────────────────────── */}
       <div className={`sheet-overlay${sheetOpen ? ' open' : ''}`} onClick={closeSheet} />
       <div
+        ref={sheetRef}
         className={`sheet${sheetOpen ? ' open' : ''}`}
         onTouchStart={e => e.stopPropagation()}
         onTouchMove={e => e.stopPropagation()}
       >
-        <div className="sheet-handle-wrap">
+        <div className="sheet-handle-wrap" onPointerDown={onHandlePointerDown}>
           <div className="sheet-handle" />
         </div>
         <div className="sheet-header">
