@@ -899,6 +899,7 @@ body {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  touch-action: pan-y;
 }
 
 .sheet::-webkit-scrollbar { display: none; }
@@ -2430,7 +2431,11 @@ export default function App() {
 
       {/* ── BOTTOM SHEET ─────────────────────────────────────────────── */}
       <div className={`sheet-overlay${sheetOpen ? ' open' : ''}`} onClick={closeSheet} />
-      <div className={`sheet${sheetOpen ? ' open' : ''}`}>
+      <div
+        className={`sheet${sheetOpen ? ' open' : ''}`}
+        onTouchStart={e => e.stopPropagation()}
+        onTouchMove={e => e.stopPropagation()}
+      >
         <div className="sheet-handle-wrap">
           <div className="sheet-handle" />
         </div>
