@@ -1456,6 +1456,104 @@ body {
 
 /* Map store dot marker */
 .store-dot { background: none; border: none; }
+
+/* ─── DESKTOP LAYOUT (two-column) ─────────────────────────────────────────── */
+@media (min-width: 768px) {
+  /* Unlock full-width */
+  .app-root {
+    max-width: 100%;
+  }
+  .app-root::before {
+    max-width: 100%;
+    left: 0;
+    transform: none;
+  }
+
+  /* Header and tab bar span full width */
+  .header {
+    max-width: 100%;
+    left: 0;
+    transform: none;
+  }
+  .tab-bar {
+    max-width: 100%;
+    left: 0;
+    transform: none;
+  }
+
+  /* Left panel: fixed, scrollable sidebar */
+  .left-panel {
+    position: fixed;
+    left: 0;
+    top: calc(92px + env(safe-area-inset-top, 0px));
+    bottom: 0;
+    width: 420px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-right: 1px solid var(--rule);
+    background: var(--page);
+    scrollbar-width: thin;
+    scrollbar-color: var(--worn) transparent;
+  }
+  .left-panel::-webkit-scrollbar { width: 4px; }
+  .left-panel::-webkit-scrollbar-track { background: transparent; }
+  .left-panel::-webkit-scrollbar-thumb { background: var(--worn); border-radius: 2px; }
+
+  /* Filter strip sticks to top of left panel */
+  .filter-strip {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  /* Events section inside left panel */
+  .events-section {
+    margin-top: 0;
+    padding-bottom: 80px;
+  }
+
+  /* Map fills the right side */
+  .map-section {
+    position: fixed;
+    left: 420px;
+    right: 0;
+    top: calc(92px + env(safe-area-inset-top, 0px));
+    bottom: 0;
+    height: auto;
+    margin-top: 0;
+    background: none;
+  }
+  #map-container {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    width: 100%;
+  }
+
+  /* Map overlay elements stay anchored inside map-section */
+  .map-badge  { top: 16px; left: 16px; }
+  .map-near-me { top: 16px; right: 16px; }
+  .map-legend { bottom: 32px; left: 16px; }
+
+  /* FAB sits at bottom-left of left panel */
+  .fab {
+    left: 210px;
+    right: auto;
+    bottom: 28px;
+    transform: translateX(-50%);
+  }
+
+  /* Post sighting sheet anchored to left panel */
+  .sheet {
+    left: 0;
+    width: 420px;
+    max-width: 420px;
+    transform: translateX(0) translateY(100%);
+  }
+  .sheet.open {
+    transform: translateX(0) translateY(0);
+  }
+}
 `
 
 // ─── MOCK DATA ─────────────────────────────────────────────────────────────
@@ -2286,6 +2384,9 @@ export default function App() {
         </div>
       </section>
 
+      {/* ── LEFT PANEL (desktop: fixed scrollable sidebar; mobile: flow) ── */}
+      <div className="left-panel">
+
       {/* ── DB STATUS BAR ───────────────────────────────────────────── */}
       {activeTab === 'scout' && (
         <div className="db-status-bar">
@@ -2496,6 +2597,8 @@ export default function App() {
           })}
         </section>
       )}
+
+      </div>{/* end .left-panel */}
 
       {/* ── FAB ─────────────────────────────────────────────────────── */}
       <button className="fab" onClick={openSheet} aria-label="Post sighting">
