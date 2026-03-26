@@ -1167,9 +1167,9 @@ body {
 /* ─── TOAST ──────────────────────────────────────────────────────────────── */
 .toast {
   position: fixed;
-  top: 60px;
+  top: calc(92px + env(safe-area-inset-top, 0px) + 12px);
   left: 50%;
-  transform: translateX(-50%) translateY(-80px);
+  transform: translateX(-50%) translateY(-12px);
   z-index: 500;
   background: var(--card-2);
   border: 1px solid var(--gold);
@@ -1182,10 +1182,14 @@ body {
   color: var(--gold-light);
   white-space: nowrap;
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .toast.show {
+  opacity: 1;
+  pointer-events: auto;
   transform: translateX(-50%) translateY(0);
 }
 
@@ -2185,7 +2189,7 @@ export default function App() {
   function showToast() {
     setToastVisible(true)
     clearTimeout(toastTimerRef.current)
-    toastTimerRef.current = setTimeout(() => setToastVisible(false), 2500)
+    toastTimerRef.current = setTimeout(() => setToastVisible(false), 3000)
   }
 
   // ── Toggle bottle selection ────────────────────────────────────────────
