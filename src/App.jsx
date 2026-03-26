@@ -74,13 +74,15 @@ body {
   transform: translateX(-50%);
   width: 100%;
   max-width: 480px;
-  height: 52px;
+  height: calc(52px + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
   background: var(--ink);
   border-bottom: 1px solid var(--rule);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding-left: 16px;
+  padding-right: 16px;
   z-index: 100;
 }
 
@@ -136,7 +138,7 @@ body {
 /* ─── TAB BAR ────────────────────────────────────────────────────────────── */
 .tab-bar {
   position: fixed;
-  top: 52px;
+  top: calc(52px + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
@@ -182,7 +184,7 @@ body {
   position: relative;
   width: 100%;
   height: 50vh;
-  margin-top: 92px;
+  margin-top: calc(92px + env(safe-area-inset-top, 0px));
   background: repeating-linear-gradient(
     45deg,
     rgba(193,125,14,0.03) 0px,
@@ -302,7 +304,7 @@ body {
 /* ─── FILTER STRIP ────────────────────────────────────────────────────────── */
 .filter-strip {
   position: sticky;
-  top: 92px;
+  top: calc(92px + env(safe-area-inset-top, 0px));
   z-index: 80;
   background: var(--page);
   border-top: 1px solid var(--rule);
@@ -599,7 +601,7 @@ body {
 /* ─── EVENTS VIEW ─────────────────────────────────────────────────────────── */
 .events-section {
   padding: 0 0 120px;
-  margin-top: 92px;
+  margin-top: calc(92px + env(safe-area-inset-top, 0px));
 }
 
 .events-header {
@@ -1755,6 +1757,7 @@ export default function App() {
   const toastTimerRef = useRef(null)
   const realtimeChannelRef = useRef(null)
   const sheetRef = useRef(null)
+  const sheetBodyRef = useRef(null)
   const dragStartY = useRef(null)
   const dragStartH = useRef(null)
 
@@ -1970,6 +1973,7 @@ export default function App() {
       setStoreName(store)
       setStoreSearch(store)
       setSheetOpen(true)
+      requestAnimationFrame(() => { if (sheetBodyRef.current) sheetBodyRef.current.scrollTop = 0 })
     }
     // Opened from a store dot — pre-fill with known store data
     window.__dsOpenSheetAtStore = (storeId, storeName, city, lat, lng) => {
@@ -1979,6 +1983,7 @@ export default function App() {
       setStoreName(storeName)
       setCityName(city)
       setSheetOpen(true)
+      requestAnimationFrame(() => { if (sheetBodyRef.current) sheetBodyRef.current.scrollTop = 0 })
     }
     return () => {
       delete window.__dsConfirm
@@ -2169,6 +2174,10 @@ export default function App() {
   // ── Open sheet ─────────────────────────────────────────────────────────
   function openSheet() {
     setSheetOpen(true)
+    // Always start sheet scrolled to top so bottles section is visible first
+    requestAnimationFrame(() => {
+      if (sheetBodyRef.current) sheetBodyRef.current.scrollTop = 0
+    })
   }
 
   function onHandlePointerDown(e) {
@@ -2507,7 +2516,7 @@ export default function App() {
         <div className="sheet-header">
           <div className="sheet-title">POST A SIGHTING</div>
         </div>
-        <div className="sheet-body">
+        <div ref={sheetBodyRef} className="sheet-body">
           {/* Bottles */}
           <label className="field-label">BOTTLE(S) SPOTTED</label>
           <div className="bottle-select-grid">
