@@ -121,3 +121,32 @@ export function subscribeToSightings(onInsert) {
     )
     .subscribe()
 }
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+export async function signInWithGoogle() {
+  if (!supabase) return
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin },
+  })
+  if (error) console.error('Google sign-in error:', error.message)
+}
+
+export async function signOut() {
+  if (!supabase) return
+  await supabase.auth.signOut()
+}
+
+export async function getSession() {
+  if (!supabase) return null
+  const { data: { session } } = await supabase.auth.getSession()
+  return session
+}
+
+// Returns an unsubscribe function
+export function onAuthStateChange(callback) {
+  if (!supabase) return () => {}
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(callback)
+  return () => subscription.unsubscribe()
+}

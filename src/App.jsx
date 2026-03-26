@@ -4,6 +4,7 @@ import {
   fetchStores, fetchSightings, fetchEvents,
   postSighting, confirmSighting, toggleEventRsvp,
   subscribeToSightings,
+  signInWithGoogle, signOut, getSession, onAuthStateChange,
 } from './supabase'
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
@@ -105,34 +106,57 @@ body {
   letter-spacing: 0.05em;
 }
 
-.header-bell {
-  position: relative;
+.header-user {
   background: none;
-  border: none;
+  border: 1px solid var(--rule);
+  border-radius: 20px;
   cursor: pointer;
-  padding: 8px;
+  padding: 5px 10px;
   color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   display: flex;
   align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
+  gap: 6px;
+  min-height: 34px;
+  transition: border-color 0.15s, color 0.15s;
+  white-space: nowrap;
 }
 
-.header-bell svg {
-  width: 20px;
-  height: 20px;
+.header-user:hover {
+  border-color: var(--gold);
+  color: var(--gold-light);
 }
 
-.header-bell-dot {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 7px;
-  height: 7px;
+.header-user.signed-in {
+  border: none;
+  padding: 0;
+}
+
+.header-avatar {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: var(--gold);
-  border: 1.5px solid var(--ink);
+  object-fit: cover;
+  border: 1.5px solid var(--worn);
+  display: block;
+}
+
+.header-avatar-fallback {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--worn);
+  color: var(--gold-light);
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 700;
+  font-size: 15px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--rule);
 }
 
 /* ─── TAB BAR ────────────────────────────────────────────────────────────── */
@@ -1846,6 +1870,7 @@ export default function App() {
   const [useLocation, setUseLocation] = useState(true)
   const [otherBottle, setOtherBottle] = useState('')
   const [reporterHandle, setReporterHandle] = useState('')
+  const [session, setSession] = useState(null)
   // Store picker
   const [storeSearch, setStoreSearch] = useState('')
   const [selectedStore, setSelectedStore] = useState(null)
@@ -1888,6 +1913,22 @@ export default function App() {
       }
     }
   }, [])
+
+  // ── Auth session ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!supabase) return
+    getSession().then(setSession)
+    return onAuthStateChange((_event, sess) => setSession(sess))
+  }, [])
+
+  // ── Pre-fill reporter handle from Google profile ───────────────────────
+  useEffect(() => {
+    if (session?.user?.user_metadata?.full_name && !reporterHandle) {
+      const name = session.user.user_metadata.full_name
+        .toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').slice(0, 30)
+      setReporterHandle(name)
+    }
+  }, [session])
 
   // ── Draw store dots when stores + map are both ready ───────────────────
   useEffect(() => {
@@ -2332,13 +2373,31 @@ export default function App() {
           <span className="header-emoji">🥃</span>
           <span className="header-title">DRAM SCOUT</span>
         </div>
-        <button className="header-bell" aria-label="Notifications">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-          </svg>
-          <span className="header-bell-dot" />
-        </button>
+        {session ? (
+          <button
+            className="header-user signed-in"
+            onClick={() => signOut()}
+            title={`Signed in as ${session.user.user_metadata?.full_name || session.user.email} · Click to sign out`}
+          >
+            <img
+              src={session.user.user_metadata?.avatar_url}
+              alt=""
+              className="header-avatar"
+              onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex' }}
+            />
+            <span className="header-avatar-fallback">
+              {(session.user.user_metadata?.full_name || session.user.email || '?')[0].toUpperCase()}
+            </span>
+          </button>
+        ) : (
+          <button className="header-user" onClick={() => signInWithGoogle()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
+              <circle cx="12" cy="8" r="4"/>
+              <path d="M20 21a8 8 0 1 0-16 0"/>
+            </svg>
+            SIGN IN
+          </button>
+        )}
       </header>
 
       {/* ── TAB BAR ─────────────────────────────────────────────────── */}
