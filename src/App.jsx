@@ -1759,11 +1759,14 @@ export default function App() {
     }
   }, [stores, leafletLoadedRef.current])
 
-  // ── Inject styles ──────────────────────────────────────────────────────
+  // ── Inject styles + remove loading splash ─────────────────────────────
   useEffect(() => {
     const el = document.createElement('style')
     el.textContent = STYLES
     document.head.appendChild(el)
+    // Hide the static loading splash once React has mounted
+    const splash = document.getElementById('app-loading')
+    if (splash) splash.style.display = 'none'
     return () => el.remove()
   }, [])
 

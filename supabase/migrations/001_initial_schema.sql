@@ -1,10 +1,8 @@
--- ============================================================
--- Dram Scout — Initial Schema
--- Run this in the Supabase SQL Editor
--- ============================================================
+-- Dram Scout: Initial Schema
+-- Run this entire block in the Supabase SQL Editor
 
--- ── STORES ────────────────────────────────────────────────────────────────
--- All NC ABC store locations, pre-seeded from seed file
+-- TABLES
+
 CREATE TABLE IF NOT EXISTS stores (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name        TEXT NOT NULL,
@@ -18,11 +16,6 @@ CREATE TABLE IF NOT EXISTS stores (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS stores_city_idx    ON stores(city);
-CREATE INDEX IF NOT EXISTS stores_county_idx  ON stores(county);
-CREATE INDEX IF NOT EXISTS stores_location_idx ON stores(lat, lng);
-
--- ── SIGHTINGS ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS sightings (
   id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   store_id           UUID REFERENCES stores(id) ON DELETE SET NULL,
@@ -31,18 +24,13 @@ CREATE TABLE IF NOT EXISTS sightings (
   state              TEXT NOT NULL DEFAULT 'NC',
   lat                DOUBLE PRECISION NOT NULL,
   lng                DOUBLE PRECISION NOT NULL,
-  bottles            TEXT[]  NOT NULL,
+  bottles            TEXT[] NOT NULL,
   reporter           TEXT NOT NULL DEFAULT 'anonymous',
   notes              TEXT,
   confirmation_count INTEGER NOT NULL DEFAULT 0,
   created_at         TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS sightings_created_at_idx ON sightings(created_at DESC);
-CREATE INDEX IF NOT EXISTS sightings_store_id_idx   ON sightings(store_id);
-
--- ── CONFIRMATIONS ─────────────────────────────────────────────────────────
--- Fingerprint = per-browser UUID stored in localStorage (anonymous)
 CREATE TABLE IF NOT EXISTS confirmations (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   sighting_id UUID NOT NULL REFERENCES sightings(id) ON DELETE CASCADE,
@@ -51,9 +39,6 @@ CREATE TABLE IF NOT EXISTS confirmations (
   UNIQUE (sighting_id, fingerprint)
 );
 
-CREATE INDEX IF NOT EXISTS confirmations_sighting_idx ON confirmations(sighting_id);
-
--- ── EVENTS ────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS events (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name           TEXT NOT NULL,
@@ -68,9 +53,6 @@ CREATE TABLE IF NOT EXISTS events (
   created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS events_date_idx ON events(event_date DESC);
-
--- ── EVENT RSVPS ───────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS event_rsvps (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id    UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
@@ -79,62 +61,65 @@ CREATE TABLE IF NOT EXISTS event_rsvps (
   UNIQUE (event_id, fingerprint)
 );
 
-CREATE INDEX IF NOT EXISTS event_rsvps_event_idx ON event_rsvps(event_id);
+-- INDEXES
 
--- ── FUNCTIONS ─────────────────────────────────────────────────────────────
--- Increment confirmation count atomically
+CREATE INDEX IF NOT EXISTS stores_city_idx         ON stores(city);
+CREATE INDEX IF NOT EXISTS stores_county_idx        ON stores(county);
+CREATE INDEX IF NOT EXISTS stores_location_idx      ON stores(lat, lng);
+CREATE INDEX IF NOT EXISTS sightings_created_at_idx ON sightings(created_at DESC);
+CREATE INDEX IF NOT EXISTS sightings_store_id_idx   ON sightings(store_id);
+CREATE INDEX IF NOT EXISTS confirmations_sighting_idx ON confirmations(sighting_id);
+CREATE INDEX IF NOT EXISTS event_rsvps_event_idx    ON event_rsvps(event_id);
+CREATE INDEX IF NOT EXISTS events_date_idx          ON events(event_date DESC);
+
+-- FUNCTIONS
+
 CREATE OR REPLACE FUNCTION increment_confirmation(p_sighting_id UUID)
 RETURNS VOID
-LANGUAGE plpgsql SECURITY DEFINER AS $$
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 BEGIN
   UPDATE sightings
-  SET    confirmation_count = confirmation_count + 1
-  WHERE  id = p_sighting_id;
+  SET confirmation_count = confirmation_count + 1
+  WHERE id = p_sighting_id;
 END;
 $$;
 
--- Get event attendee count
 CREATE OR REPLACE FUNCTION get_event_attendees(p_event_id UUID)
 RETURNS INTEGER
-LANGUAGE sql SECURITY DEFINER AS $$
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
   SELECT COUNT(*)::INTEGER FROM event_rsvps WHERE event_id = p_event_id;
 $$;
 
--- ── ROW LEVEL SECURITY ────────────────────────────────────────────────────
-ALTER TABLE stores       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sightings    ENABLE ROW LEVEL SECURITY;
+-- ROW LEVEL SECURITY
+
+ALTER TABLE stores        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sightings     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE confirmations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE events       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE event_rsvps  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE events        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_rsvps   ENABLE ROW LEVEL SECURITY;
 
--- Stores: anyone can read
-CREATE POLICY "stores_select" ON stores
-  FOR SELECT TO anon, authenticated USING (true);
+-- Drop policies first so this script is safe to re-run
 
--- Sightings: anyone can read or insert
-CREATE POLICY "sightings_select" ON sightings
-  FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY "sightings_insert" ON sightings
-  FOR INSERT TO anon, authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "stores_select"         ON stores;
+DROP POLICY IF EXISTS "sightings_select"      ON sightings;
+DROP POLICY IF EXISTS "sightings_insert"      ON sightings;
+DROP POLICY IF EXISTS "confirmations_select"  ON confirmations;
+DROP POLICY IF EXISTS "confirmations_insert"  ON confirmations;
+DROP POLICY IF EXISTS "events_select"         ON events;
+DROP POLICY IF EXISTS "event_rsvps_select"    ON event_rsvps;
+DROP POLICY IF EXISTS "event_rsvps_insert"    ON event_rsvps;
+DROP POLICY IF EXISTS "event_rsvps_delete"    ON event_rsvps;
 
--- Confirmations: anyone can read or insert (unique constraint prevents dupes)
-CREATE POLICY "confirmations_select" ON confirmations
-  FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY "confirmations_insert" ON confirmations
-  FOR INSERT TO anon, authenticated WITH CHECK (true);
-
--- Events: anyone can read
-CREATE POLICY "events_select" ON events
-  FOR SELECT TO anon, authenticated USING (true);
-
--- Event RSVPs: anyone can read, insert, or remove their own
-CREATE POLICY "event_rsvps_select" ON event_rsvps
-  FOR SELECT TO anon, authenticated USING (true);
-CREATE POLICY "event_rsvps_insert" ON event_rsvps
-  FOR INSERT TO anon, authenticated WITH CHECK (true);
-CREATE POLICY "event_rsvps_delete" ON event_rsvps
-  FOR DELETE TO anon, authenticated USING (true);
-
--- ── REALTIME ──────────────────────────────────────────────────────────────
--- Enable realtime via the Supabase Dashboard (cannot be done in SQL editor):
---   Database → Replication → supabase_realtime → toggle ON for: sightings, confirmations
+CREATE POLICY "stores_select"        ON stores        FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "sightings_select"     ON sightings     FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "sightings_insert"     ON sightings     FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "confirmations_select" ON confirmations FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "confirmations_insert" ON confirmations FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "events_select"        ON events        FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "event_rsvps_select"   ON event_rsvps  FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "event_rsvps_insert"   ON event_rsvps  FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "event_rsvps_delete"   ON event_rsvps  FOR DELETE TO anon, authenticated USING (true);
