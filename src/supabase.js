@@ -122,6 +122,49 @@ export function subscribeToSightings(onInsert) {
     .subscribe()
 }
 
+// ── User profile data ─────────────────────────────────────────────────────────
+
+// Sightings posted by this user (all time)
+export async function fetchUserSightings(userId) {
+  if (!supabase || !userId) return []
+  const { data, error } = await supabase
+    .from('sightings')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) { console.warn('fetchUserSightings:', error.message); return [] }
+  return data || []
+}
+
+// Store IDs this user has favorited
+export async function fetchUserFavorites(userId) {
+  if (!supabase || !userId) return []
+  const { data, error } = await supabase
+    .from('store_favorites')
+    .select('store_id')
+    .eq('user_id', userId)
+  if (error) { console.warn('fetchUserFavorites:', error.message); return [] }
+  return data?.map(r => r.store_id) || []
+}
+
+// Add or remove a store favorite
+export async function toggleStoreFavorite(storeId, userId, isCurrentlyFavorited) {
+  if (!supabase || !userId) return false
+  if (isCurrentlyFavorited) {
+    const { error } = await supabase
+      .from('store_favorites')
+      .delete()
+      .eq('store_id', storeId)
+      .eq('user_id', userId)
+    return !error
+  } else {
+    const { error } = await supabase
+      .from('store_favorites')
+      .insert({ store_id: storeId, user_id: userId })
+    return !error
+  }
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 export async function signInWithGoogle() {

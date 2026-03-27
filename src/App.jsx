@@ -5,6 +5,7 @@ import {
   postSighting, confirmSighting, toggleEventRsvp,
   subscribeToSightings,
   signInWithGoogle, signOut, getSession, onAuthStateChange,
+  fetchUserSightings, fetchUserFavorites, toggleStoreFavorite,
 } from './supabase'
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
@@ -1485,6 +1486,194 @@ body {
 /* Map store dot marker */
 .store-dot { background: none; border: none; }
 
+/* ─── PROFILE VIEW ─────────────────────────────────────────────────────────── */
+.profile-view {
+  padding: 0 0 100px;
+}
+
+.profile-user-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.profile-big-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--worn);
+  flex-shrink: 0;
+}
+
+.profile-big-avatar-fallback {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--worn);
+  color: var(--gold-light);
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 700;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profile-user-info { flex: 1; min-width: 0; }
+
+.profile-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--paper);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-email {
+  font-size: 10px;
+  color: var(--ghost);
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-signout-btn {
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.profile-signout-btn:hover { border-color: var(--urgent); color: var(--urgent); }
+
+.profile-section-header {
+  padding: 16px 16px 10px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.profile-section-count {
+  color: var(--ghost);
+  font-weight: 400;
+}
+
+.profile-empty {
+  padding: 24px 16px;
+  font-size: 11px;
+  color: var(--ghost);
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+
+.profile-signin-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 60px 24px;
+  text-align: center;
+}
+
+.profile-signin-prompt p {
+  font-size: 13px;
+  color: var(--ghost);
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+}
+
+.profile-signin-google-btn {
+  background: var(--card-2);
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  color: var(--gold-light);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: 14px 28px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.profile-signin-google-btn:hover { background: var(--card); }
+
+.profile-fav-store-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.profile-fav-store-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--paper);
+  flex: 1;
+}
+
+.profile-fav-store-city {
+  font-size: 10px;
+  color: var(--ghost);
+  letter-spacing: 0.06em;
+}
+
+.profile-fav-remove {
+  background: none;
+  border: none;
+  color: var(--worn);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.profile-fav-remove:hover { color: var(--urgent); }
+
+/* Favorite star on sighting cards */
+.btn-favorite {
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--worn);
+  font-size: 14px;
+  padding: 6px 8px;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.btn-favorite:hover, .btn-favorite.favorited {
+  color: var(--gold-light);
+  border-color: var(--gold);
+}
+
 /* ─── DESKTOP LAYOUT (two-column) ─────────────────────────────────────────── */
 @media (min-width: 768px) {
   /* Unlock full-width */
@@ -1871,6 +2060,8 @@ export default function App() {
   const [otherBottle, setOtherBottle] = useState('')
   const [reporterHandle, setReporterHandle] = useState('')
   const [session, setSession] = useState(null)
+  const [favorites, setFavorites] = useState(new Set())
+  const [userSightings, setUserSightings] = useState([])
   // Store picker
   const [storeSearch, setStoreSearch] = useState('')
   const [selectedStore, setSelectedStore] = useState(null)
@@ -1929,6 +2120,17 @@ export default function App() {
       setReporterHandle(name)
     }
   }, [session])
+
+  // ── Load per-user profile data when session is available ───────────────
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setFavorites(new Set())
+      setUserSightings([])
+      return
+    }
+    fetchUserFavorites(session.user.id).then(ids => setFavorites(new Set(ids)))
+    fetchUserSightings(session.user.id).then(setUserSightings)
+  }, [session?.user?.id])
 
   // ── Draw store dots when stores + map are both ready ───────────────────
   useEffect(() => {
@@ -2158,6 +2360,7 @@ export default function App() {
     return {
       ...s,
       store: s.store || s.store_name,
+      storeId: s.storeId ?? s.store_id ?? null,
       createdAt,
       hoursAgo: (now - createdAt) / (1000 * 60 * 60),
       confirmations: s.confirmations ?? s.confirmation_count ?? 0,
@@ -2213,6 +2416,17 @@ export default function App() {
   }
 
   // ── Confirm sighting ───────────────────────────────────────────────────
+  async function handleToggleFavorite(storeId) {
+    if (!session?.user?.id || !storeId) return
+    const isFav = favorites.has(storeId)
+    setFavorites(prev => {
+      const next = new Set(prev)
+      isFav ? next.delete(storeId) : next.add(storeId)
+      return next
+    })
+    await toggleStoreFavorite(storeId, session.user.id, isFav)
+  }
+
   async function handleConfirm(id) {
     // Optimistic update first
     setConfirmed(prev => { const n = new Set(prev); n.add(id); return n })
@@ -2303,6 +2517,7 @@ export default function App() {
         bottles: bottleList,
         reporter: handle,
         notes: localSighting.notes,
+        user_id: session?.user?.id || null,
       })
       // Add the DB row (with real UUID) or fall back to local object
       const row = saved ? { ...saved, store: saved.store_name, confirmations: 0 } : localSighting
@@ -2414,10 +2629,16 @@ export default function App() {
         >
           <span className="tab-btn-icon">📅</span> EVENTS
         </button>
+        <button
+          className={`tab-btn${activeTab === 'profile' ? ' active' : ''}`}
+          onClick={() => setActiveTab('profile')}
+        >
+          <span className="tab-btn-icon">👤</span> PROFILE
+        </button>
       </nav>
 
       {/* ── MAP SECTION ─────────────────────────────────────────────── */}
-      <section className="map-section" style={{ display: activeTab === 'scout' ? undefined : 'none' }}>
+      <section className="map-section" style={{ display: activeTab === 'scout' ? undefined : 'none' }} aria-hidden={activeTab !== 'scout'}>
         <div id="map-container" ref={mapContainerRef} />
 
         {/* Badge */}
@@ -2527,6 +2748,15 @@ export default function App() {
                 <button className="btn-view-map" onClick={() => handleViewOnMap(s)}>
                   VIEW ON MAP
                 </button>
+                {session && s.storeId && (
+                  <button
+                    className={`btn-favorite${favorites.has(s.storeId) ? ' favorited' : ''}`}
+                    onClick={() => handleToggleFavorite(s.storeId)}
+                    title={favorites.has(s.storeId) ? 'Remove favorite' : 'Save store'}
+                  >
+                    {favorites.has(s.storeId) ? '★' : '☆'}
+                  </button>
+                )}
               </div>
             </div>
           )
@@ -2659,6 +2889,106 @@ export default function App() {
             )
           })}
         </section>
+      )}
+
+      {/* ── PROFILE VIEW ────────────────────────────────────────────── */}
+      {activeTab === 'profile' && (
+        <div className="profile-view">
+          {session ? (
+            <>
+              {/* User card */}
+              <div className="profile-user-card">
+                {session.user.user_metadata?.avatar_url ? (
+                  <img src={session.user.user_metadata.avatar_url} className="profile-big-avatar" alt="" />
+                ) : (
+                  <div className="profile-big-avatar-fallback">
+                    {(session.user.user_metadata?.full_name || session.user.email || '?')[0].toUpperCase()}
+                  </div>
+                )}
+                <div className="profile-user-info">
+                  <div className="profile-name">{session.user.user_metadata?.full_name || 'Scout'}</div>
+                  <div className="profile-email">{session.user.email}</div>
+                </div>
+                <button className="profile-signout-btn" onClick={() => signOut()}>SIGN OUT</button>
+              </div>
+
+              {/* My Sightings */}
+              <div className="profile-section-header">
+                MY SIGHTINGS
+                <span className="profile-section-count">{userSightings.length}</span>
+              </div>
+              {userSightings.length === 0 ? (
+                <div className="profile-empty">No sightings posted yet — be the first to scout!</div>
+              ) : userSightings.map(s => {
+                const hoursOld = (Date.now() - new Date(s.created_at).getTime()) / (1000 * 60 * 60)
+                const tier = getFreshnessTier(hoursOld)
+                return (
+                  <div key={s.id} className="sighting-card">
+                    <div className="card-top-row">
+                      <span className={`freshness-badge tier-${tier}`}>
+                        <span className="freshness-dot" />
+                        {getTierLabel(tier, hoursOld)}
+                      </span>
+                    </div>
+                    <div className="card-store-name">{s.store_name}</div>
+                    <div className="card-city">{s.city}, {s.state}</div>
+                    <div className="card-bottles">
+                      {(s.bottles || []).map(b => <span key={b} className="bottle-chip">🍾 {b}</span>)}
+                    </div>
+                    <div className="card-meta-row">
+                      <span className="card-meta">@{s.reporter}</span>
+                      <span className="card-confirmed">✓ {s.confirmation_count} confirmed</span>
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/* Favorite Stores */}
+              <div className="profile-section-header" style={{ marginTop: 8 }}>
+                FAVORITE STORES
+                <span className="profile-section-count">{favorites.size}</span>
+              </div>
+              {favorites.size === 0 ? (
+                <div className="profile-empty">No favorites yet — tap ★ on any sighting card to save a store</div>
+              ) : stores.filter(s => favorites.has(s.id)).map(store => (
+                <div key={store.id} className="profile-fav-store-row">
+                  <div style={{ flex: 1 }}>
+                    <div className="profile-fav-store-name">{store.name}</div>
+                    <div className="profile-fav-store-city">{store.city}, {store.state}</div>
+                  </div>
+                  <button
+                    className="profile-fav-remove"
+                    onClick={() => handleToggleFavorite(store.id)}
+                    title="Remove favorite"
+                  >★</button>
+                </div>
+              ))}
+
+              {/* My Events */}
+              <div className="profile-section-header" style={{ marginTop: 8 }}>
+                MY EVENTS
+                <span className="profile-section-count">{rsvpd.size}</span>
+              </div>
+              {rsvpd.size === 0 ? (
+                <div className="profile-empty">No events RSVPd yet — check the Events tab</div>
+              ) : activeEvents.filter(e => rsvpd.has(e.id)).map(event => (
+                <div key={event.id} className="profile-fav-store-row">
+                  <div style={{ flex: 1 }}>
+                    <div className="profile-fav-store-name">{event.name}</div>
+                    <div className="profile-fav-store-city">{event.store} · {formatEventDate(event.date)}</div>
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            <div className="profile-signin-prompt">
+              <p>SIGN IN WITH GOOGLE TO TRACK YOUR SIGHTINGS, SAVE FAVORITE STORES, AND RSVP TO BOURBON DROPS</p>
+              <button className="profile-signin-google-btn" onClick={() => signInWithGoogle()}>
+                SIGN IN WITH GOOGLE
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       </div>{/* end .left-panel */}
