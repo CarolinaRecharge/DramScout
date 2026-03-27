@@ -5,7 +5,7 @@ import {
   postSighting, confirmSighting, toggleEventRsvp,
   subscribeToSightings,
   signInWithGoogle, signOut, getSession, onAuthStateChange,
-  fetchUserSightings, fetchUserFavorites, toggleStoreFavorite,
+  fetchUserSightings, fetchUserFavorites, toggleStoreFavorite, deleteSighting,
 } from './supabase'
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
@@ -1674,6 +1674,104 @@ body {
   border-color: var(--gold);
 }
 
+.btn-delete-sighting {
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-delete-sighting:hover {
+  border-color: var(--urgent);
+  color: var(--urgent);
+}
+
+/* ─── CONFIRM MODAL ────────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 600;
+  backdrop-filter: blur(2px);
+}
+
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 610;
+  background: var(--card-2);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 28px 24px 20px;
+  width: min(340px, calc(100vw - 40px));
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+
+.modal-title {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--urgent);
+  margin-bottom: 12px;
+}
+
+.modal-body {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  color: var(--ghost);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.modal-btn-cancel {
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.modal-btn-cancel:hover { border-color: var(--parchment); color: var(--parchment); }
+
+.modal-btn-confirm {
+  background: var(--urgent);
+  border: 1px solid var(--urgent);
+  border-radius: 6px;
+  color: var(--paper);
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 10px 18px;
+  cursor: pointer;
+  opacity: 0.9;
+  transition: opacity 0.15s;
+}
+
+.modal-btn-confirm:hover { opacity: 1; }
+
 /* ─── DESKTOP LAYOUT (two-column) ─────────────────────────────────────────── */
 @media (min-width: 768px) {
   /* Unlock full-width */
@@ -2063,6 +2161,7 @@ export default function App() {
   const [session, setSession] = useState(null)
   const [favorites, setFavorites] = useState(new Set())
   const [userSightings, setUserSightings] = useState([])
+  const [deleteConfirm, setDeleteConfirm] = useState(null) // sighting id pending delete
   // Store picker
   const [storeSearch, setStoreSearch] = useState('')
   const [selectedStore, setSelectedStore] = useState(null)
@@ -2418,6 +2517,16 @@ export default function App() {
   }
 
   // ── Confirm sighting ───────────────────────────────────────────────────
+  async function handleDeleteSighting(id) {
+    if (!session?.user?.id) return
+    const ok = await deleteSighting(id, session.user.id)
+    if (ok) {
+      setUserSightings(prev => prev.filter(s => s.id !== id))
+      setDbSightings(prev => prev ? prev.filter(s => s.id !== id) : prev)
+    }
+    setDeleteConfirm(null)
+  }
+
   async function handleToggleFavorite(storeId) {
     if (!session?.user?.id || !storeId) return
     const isFav = favorites.has(storeId)
@@ -2943,6 +3052,14 @@ export default function App() {
                       <span className="card-meta">@{s.reporter}</span>
                       <span className="card-confirmed">✓ {s.confirmation_count} confirmed</span>
                     </div>
+                    <div className="card-actions">
+                      <button
+                        className="btn-delete-sighting"
+                        onClick={() => setDeleteConfirm(s.id)}
+                      >
+                        DELETE
+                      </button>
+                    </div>
                   </div>
                 )
               })}
@@ -3144,6 +3261,27 @@ export default function App() {
       <div className={`toast${toastVisible ? ' show' : ''}`}>
         ✓ SIGHTING POSTED
       </div>
+
+      {/* ── DELETE CONFIRM MODAL ─────────────────────────────────────── */}
+      {deleteConfirm && (
+        <>
+          <div className="modal-overlay" onClick={() => setDeleteConfirm(null)} />
+          <div className="modal">
+            <div className="modal-title">DELETE SIGHTING?</div>
+            <div className="modal-body">
+              This sighting will be permanently removed from the map and feed. This cannot be undone.
+            </div>
+            <div className="modal-actions">
+              <button className="modal-btn-cancel" onClick={() => setDeleteConfirm(null)}>
+                CANCEL
+              </button>
+              <button className="modal-btn-confirm" onClick={() => handleDeleteSighting(deleteConfirm)}>
+                DELETE
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

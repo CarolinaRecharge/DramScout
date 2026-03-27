@@ -122,6 +122,18 @@ export function subscribeToSightings(onInsert) {
     .subscribe()
 }
 
+// Delete a sighting the user owns
+export async function deleteSighting(sightingId, userId) {
+  if (!supabase || !userId) return false
+  const { error } = await supabase
+    .from('sightings')
+    .delete()
+    .eq('id', sightingId)
+    .eq('user_id', userId)   // safety: only delete own sightings
+  if (error) { console.warn('deleteSighting:', error.message); return false }
+  return true
+}
+
 // ── User profile data ─────────────────────────────────────────────────────────
 
 // Sightings posted by this user (all time)
