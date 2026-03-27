@@ -2050,6 +2050,7 @@ export default function App() {
   const [locating, setLocating] = useState(false)
   const [visibleCount, setVisibleCount] = useState(8)
   const [prefillStore, setPrefillStore] = useState('')
+  const [prefillCoords, setPrefillCoords] = useState(null)
 
   // Post form state
   const [selectedBottles, setSelectedBottles] = useState([])
@@ -2284,7 +2285,7 @@ export default function App() {
               id="popup-saw-${s.id}">
               ${isConfirmed ? '✓ CONFIRMED' : 'I SAW THIS'}
             </button>
-            <button class="popup-btn" onclick="window.__dsOpenSheet('${s.id}','${s.store.replace(/'/g, "\\'")}')">
+            <button class="popup-btn" onclick="window.__dsOpenSheet('${s.id}','${s.store.replace(/'/g, "\\'")}',${s.lat},${s.lng})">
               POST UPDATE
             </button>
           </div>
@@ -2313,10 +2314,11 @@ export default function App() {
         btn.classList.add('confirmed-state')
       }
     }
-    window.__dsOpenSheet = (id, store) => {
+    window.__dsOpenSheet = (id, store, lat, lng) => {
       setPrefillStore(store)
       setStoreName(store)
       setStoreSearch(store)
+      setPrefillCoords(lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : null)
       setSheetOpen(true)
       requestAnimationFrame(() => { if (sheetBodyRef.current) sheetBodyRef.current.scrollTop = 0 })
     }
@@ -2465,8 +2467,9 @@ export default function App() {
     const fp = getFingerprint()
     const handle = reporterHandle.trim() || ('scout_' + fp.slice(-4))
 
-    const lat = selectedStore?.lat ?? (35.7796 + (Math.random() - 0.5) * 0.2)
-    const lng = selectedStore?.lng ?? (-78.6382 + (Math.random() - 0.5) * 0.2)
+    // Always pin to store location — never user GPS
+    const lat = selectedStore?.lat ?? prefillCoords?.lat ?? 35.7796
+    const lng = selectedStore?.lng ?? prefillCoords?.lng ?? -78.6382
 
     const localSighting = {
       id: `local-${Date.now()}`,
@@ -2574,6 +2577,7 @@ export default function App() {
     if (sheetRef.current) sheetRef.current.style.height = ''
     setSheetOpen(false)
     setPrefillStore('')
+    setPrefillCoords(null)
     setStoreSearch('')
     setSelectedStore(null)
     if (!prefillStore) setStoreName('')
@@ -3124,16 +3128,6 @@ export default function App() {
               value={reporterHandle}
               onChange={e => setReporterHandle(e.target.value.replace(/\s/g, '_').slice(0, 30))}
             />
-          </div>
-
-          {/* Location toggle */}
-          <div className={`location-toggle${useLocation ? ' on' : ''}`} onClick={() => setUseLocation(v => !v)}>
-            <div className={`toggle-switch${useLocation ? ' on' : ''}`}>
-              <div className="toggle-knob" />
-            </div>
-            <span className={`toggle-label${useLocation ? ' on' : ''}`}>
-              {useLocation ? '📍 Using your current location' : 'USE MY LOCATION'}
-            </span>
           </div>
 
           {/* Submit */}
