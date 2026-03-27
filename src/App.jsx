@@ -2260,6 +2260,8 @@ export default function App() {
         zoom: 11,
         zoomControl: true,
         attributionControl: true,
+        dragging: true,
+        scrollWheelZoom: true,
       })
       L.tileLayer(
         'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
@@ -2272,6 +2274,14 @@ export default function App() {
       mapInstanceRef.current = map
       leafletLoadedRef.current = true
       drawMarkers(INITIAL_SIGHTINGS, 'ALL', map, new Set())
+
+      // Recalculate map size after layout settles (critical for fixed-position desktop layout)
+      setTimeout(() => map.invalidateSize(), 150)
+
+      // Keep map sized correctly when the window is resized
+      const onResize = () => map.invalidateSize()
+      window.addEventListener('resize', onResize)
+      mapContainerRef._resizeCleanup = () => window.removeEventListener('resize', onResize)
     }
 
     if (window.L) {
@@ -2292,6 +2302,10 @@ export default function App() {
     document.head.appendChild(script)
 
     return () => {
+      if (mapContainerRef._resizeCleanup) {
+        mapContainerRef._resizeCleanup()
+        delete mapContainerRef._resizeCleanup
+      }
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove()
         mapInstanceRef.current = null
