@@ -2519,12 +2519,14 @@ export default function App() {
   // ── Confirm sighting ───────────────────────────────────────────────────
   async function handleDeleteSighting(id) {
     if (!session?.user?.id) return
-    const ok = await deleteSighting(id, session.user.id)
+    setDeleteConfirm(null)
+    const { ok, error } = await deleteSighting(id, session.user.id)
     if (ok) {
       setUserSightings(prev => prev.filter(s => s.id !== id))
       setDbSightings(prev => prev ? prev.filter(s => s.id !== id) : prev)
+    } else {
+      alert(`Could not delete sighting: ${error}`)
     }
-    setDeleteConfirm(null)
   }
 
   async function handleToggleFavorite(storeId) {

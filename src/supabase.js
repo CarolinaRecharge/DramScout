@@ -124,14 +124,21 @@ export function subscribeToSightings(onInsert) {
 
 // Delete a sighting the user owns
 export async function deleteSighting(sightingId, userId) {
-  if (!supabase || !userId) return false
-  const { error } = await supabase
+  if (!supabase || !userId) return { ok: false, error: 'Not authenticated' }
+  const { error, count } = await supabase
     .from('sightings')
-    .delete()
+    .delete({ count: 'exact' })
     .eq('id', sightingId)
-    .eq('user_id', userId)   // safety: only delete own sightings
-  if (error) { console.warn('deleteSighting:', error.message); return false }
-  return true
+    .eq('user_id', userId)
+  if (error) {
+    console.error('deleteSighting error:', error.message, error.code)
+    return { ok: false, error: error.message }
+  }
+  if (count === 0) {
+    console.error('deleteSighting: 0 rows deleted — RLS policy may be missing or user_id mismatch')
+    return { ok: false, error: 'Permission denied or record not found' }
+  }
+  return { ok: true }
 }
 
 // ── User profile data ─────────────────────────────────────────────────────────
