@@ -232,6 +232,8 @@ body {
   position: absolute;
   top: 0;
   left: 0;
+  pointer-events: auto;
+  cursor: grab;
 }
 
 /* Map overlays */
@@ -1843,6 +1845,7 @@ body {
     inset: 0;
     height: 100%;
     width: 100%;
+    pointer-events: auto;
   }
 
   /* Map overlay elements stay anchored inside map-section */
@@ -2232,6 +2235,14 @@ export default function App() {
     fetchUserSightings(session.user.id).then(setUserSightings)
   }, [session?.user?.id])
 
+  // ── Re-validate map when scout tab becomes visible ────────────────────
+  useEffect(() => {
+    if (activeTab === 'scout' && mapInstanceRef.current) {
+      mapInstanceRef.current.invalidateSize()
+      mapInstanceRef.current.dragging.enable()
+    }
+  }, [activeTab])
+
   // ── Draw store dots when stores + map are both ready ───────────────────
   useEffect(() => {
     if (stores.length && mapInstanceRef.current && leafletLoadedRef.current) {
@@ -2275,13 +2286,15 @@ export default function App() {
       leafletLoadedRef.current = true
       drawMarkers(INITIAL_SIGHTINGS, 'ALL', map, new Set())
 
-      // Recalculate map size after layout settles (critical for fixed-position desktop layout)
-      setTimeout(() => map.invalidateSize(), 150)
-
-      // Keep map sized correctly when the window is resized
-      const onResize = () => map.invalidateSize()
-      window.addEventListener('resize', onResize)
-      mapContainerRef._resizeCleanup = () => window.removeEventListener('resize', onResize)
+      // Use ResizeObserver so invalidateSize fires exactly when the container
+      // gets its real CSS dimensions (fixed-layout, tab show/hide, window resize).
+      // This is more reliable than a one-shot setTimeout race.
+      const ro = new ResizeObserver(() => {
+        map.invalidateSize()
+        map.dragging.enable()
+      })
+      ro.observe(mapContainerRef.current)
+      mapContainerRef._resizeCleanup = () => ro.disconnect()
     }
 
     if (window.L) {
