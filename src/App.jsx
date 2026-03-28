@@ -1295,8 +1295,13 @@ body {
   padding: 8px 16px 4px;
   background: var(--page);
 }
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .search-input {
-  width: 100%;
+  flex: 1;
   background: var(--card-2);
   border: 1px solid var(--rule);
   color: var(--paper);
@@ -1308,6 +1313,46 @@ body {
 }
 .search-input:focus { outline: none; border-color: var(--gold); }
 .search-input::placeholder { color: var(--ghost); }
+.search-dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  padding: 4px 2px;
+}
+
+/* ─── MOBILE SLIDE-UP BEHAVIOURS ─────────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Post-sighting sheet fills from tab-bar bottom to screen bottom */
+  .sheet.open {
+    height: calc(100dvh - 92px - env(safe-area-inset-top, 0px));
+    max-height: calc(100dvh - 92px - env(safe-area-inset-top, 0px));
+    border-radius: 0;
+  }
+
+  /* Search/filter panel slides up to cover the map */
+  .left-panel.search-expanded {
+    position: fixed;
+    top: calc(92px + env(safe-area-inset-top, 0px));
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 90;
+    overflow-y: auto;
+    background: var(--page);
+    animation: panel-slide-up 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  }
+}
+
+@keyframes panel-slide-up {
+  from { transform: translateY(40vh); opacity: 0.6; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
 
 /* ─── LEAFLET OVERRIDES ───────────────────────────────────────────────────── */
 .leaflet-container {
@@ -2267,6 +2312,7 @@ export default function App() {
   const [sightings, setSightings] = useState(INITIAL_SIGHTINGS)
   const [activeFilter, setActiveFilter] = useState('ALL')
   const [bottleSearch, setBottleSearch] = useState('')
+  const [searchExpanded, setSearchExpanded] = useState(false)
   const [pendingBrand, setPendingBrand] = useState('')
   const [pendingBottle, setPendingBottle] = useState('')
   const [confirmed, setConfirmed] = useState(new Set())
@@ -2953,7 +2999,7 @@ export default function App() {
       </section>
 
       {/* ── LEFT PANEL (desktop: fixed scrollable sidebar; mobile: flow) ── */}
-      <div className="left-panel">
+      <div className={`left-panel${searchExpanded ? ' search-expanded' : ''}`}>
 
       {/* ── DB STATUS BAR ───────────────────────────────────────────── */}
       {activeTab === 'scout' && (
@@ -2968,12 +3014,22 @@ export default function App() {
       {/* ── FILTER STRIP ────────────────────────────────────────────── */}
       {activeTab === 'scout' && (
         <div className="search-box">
-          <input
-            className="search-input"
-            placeholder="Search by bottle, brand, or store..."
-            value={bottleSearch}
-            onChange={e => { setBottleSearch(e.target.value); if (e.target.value) setActiveFilter('ALL') }}
-          />
+          <div className="search-row">
+            <input
+              className="search-input"
+              placeholder="Search by bottle, brand, or store..."
+              value={bottleSearch}
+              onChange={e => { setBottleSearch(e.target.value); if (e.target.value) setActiveFilter('ALL') }}
+              onFocus={() => setSearchExpanded(true)}
+              onBlur={() => setTimeout(() => setSearchExpanded(false), 200)}
+            />
+            {searchExpanded && (
+              <button
+                className="search-dismiss"
+                onMouseDown={e => { e.preventDefault(); setSearchExpanded(false); setBottleSearch('') }}
+              >DONE</button>
+            )}
+          </div>
         </div>
       )}
       <div className="filter-strip" style={{ display: activeTab === 'scout' ? undefined : 'none' }}>
