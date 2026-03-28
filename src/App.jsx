@@ -2518,6 +2518,14 @@ function formatEventDate(date) {
   return `${dateStr} · ${timeStr}`
 }
 
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 3958.8
+  const toRad = d => d * Math.PI / 180
+  const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1)
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
 function formatQueueCountdown(targetMs, nowMs) {
   const diff = targetMs - nowMs
   if (diff <= 0) return null
@@ -2708,6 +2716,11 @@ export default function App() {
   const [evtType, setEvtType] = useState('drop')
   const [evtName, setEvtName] = useState('')
   const [evtStoreName, setEvtStoreName] = useState('')
+  const [evtStoreSearch, setEvtStoreSearch] = useState('')
+  const [evtSelectedStore, setEvtSelectedStore] = useState(null)
+  const [evtShowStorePicker, setEvtShowStorePicker] = useState(false)
+  const [evtStoreLat, setEvtStoreLat] = useState(null)
+  const [evtStoreLng, setEvtStoreLng] = useState(null)
   const [evtCity, setEvtCity] = useState('')
   const [evtDate, setEvtDate] = useState('')
   const [evtBottles, setEvtBottles] = useState([])
@@ -3105,6 +3118,8 @@ export default function App() {
     type: e.event_type || 'drop',
     queueOpenAt: e.queue_open_at ? new Date(e.queue_open_at) : null,
     queueRadiusMiles: e.queue_radius_miles || null,
+    storeLat: e.store_lat || null,
+    storeLng: e.store_lng || null,
   }))
 
   const filteredActiveEvents = evtTypeFilter === 'all'
@@ -3197,7 +3212,9 @@ export default function App() {
       user_id: session?.user?.id || null,
       attendee_count: 0,
       queue_open_at: evtQueueOpenAt ? new Date(evtQueueOpenAt).toISOString() : null,
-      queue_radius_miles: evtQueueRadius ? parseInt(evtQueueRadius) : null,
+      queue_radius_miles: evtQueueRadius ? parseFloat(evtQueueRadius) : null,
+      store_lat: evtStoreLat,
+      store_lng: evtStoreLng,
     }
 
     // Optimistic add
@@ -3212,6 +3229,7 @@ export default function App() {
     setEvtBottles([]); setEvtPendingBrand(''); setEvtPendingBottle(''); setEvtOtherBottle('')
     setEvtParking(''); setEvtOvernight(''); setEvtIdReq(''); setEvtLimit(''); setEvtRulesNotes('')
     setEvtQueueOpenAt(''); setEvtQueueRadius('')
+    setEvtStoreSearch(''); setEvtSelectedStore(null); setEvtStoreLat(null); setEvtStoreLng(null)
 
     if (supabase) {
       const saved = await postEvent(payload)
@@ -3239,6 +3257,32 @@ export default function App() {
   // ── Join virtual queue ─────────────────────────────────────────────────
   async function handleJoinQueue(eventId) {
     if (!session?.user?.id) return
+
+    // ── Location enforcement ───────────────────────────────────────────
+    const evtData = activeEvents.find(e => e.id === eventId)
+    if (evtData?.queueRadiusMiles) {
+      const getUserPos = () => new Promise((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 12000, maximumAge: 60000 })
+      )
+      let pos
+      try {
+        pos = await getUserPos()
+      } catch {
+        alert('Location access is required to join this line.\n\nPlease enable location services in your browser settings and try again.')
+        return
+      }
+      if (evtData.storeLat && evtData.storeLng) {
+        const dist = haversineDistance(
+          pos.coords.latitude, pos.coords.longitude,
+          evtData.storeLat, evtData.storeLng
+        )
+        if (dist > evtData.queueRadiusMiles) {
+          alert(`You must be within ${evtData.queueRadiusMiles} mile${evtData.queueRadiusMiles === 0.5 ? '' : 's'} of the store to join this line.\n\nYou are approximately ${dist < 1 ? (dist * 5280).toFixed(0) + ' ft' : dist.toFixed(1) + ' miles'} away.`)
+          return
+        }
+      }
+    }
+
     const fp = getFingerprint()
     const handle =
       session.user.user_metadata?.full_name ||
@@ -3869,8 +3913,13 @@ export default function App() {
 
                       {session && lineIsOpen && !myEntry && (
                         <button className="btn-join-line" onClick={() => handleJoinQueue(event.id)}>
-                          🎯 JOIN LINE
+                          {event.queueRadiusMiles ? '📍 JOIN LINE' : '🎯 JOIN LINE'}
                         </button>
+                      )}
+                      {session && lineIsOpen && !myEntry && event.queueRadiusMiles && (
+                        <div className="evt-hint" style={{ textAlign: 'center', marginTop: -6 }}>
+                          Location services required to check in
+                        </div>
                       )}
 
                       {session && myEntry && (
@@ -4303,9 +4352,54 @@ export default function App() {
               <label className="evt-label">Event Name *</label>
               <input className="evt-input" placeholder="e.g. Blanton's Single Barrel Drop" value={evtName} onChange={e => setEvtName(e.target.value)} />
             </div>
-            <div className="evt-field">
+            <div className="evt-field" style={{ position: 'relative' }}>
               <label className="evt-label">Store Name *</label>
-              <input className="evt-input" placeholder="e.g. ABC Fine Wine & Spirits" value={evtStoreName} onChange={e => setEvtStoreName(e.target.value)} />
+              <input
+                className="evt-input"
+                placeholder={stores.length ? 'Search store name or city...' : 'Store name...'}
+                value={evtStoreSearch}
+                onChange={e => {
+                  setEvtStoreSearch(e.target.value)
+                  setEvtStoreName(e.target.value)
+                  setEvtSelectedStore(null)
+                  setEvtStoreLat(null); setEvtStoreLng(null)
+                  setEvtShowStorePicker(true)
+                  // clear radius if it required a store
+                  if (evtQueueRadius && evtQueueRadius !== '') setEvtQueueRadius('')
+                }}
+                onFocus={() => setEvtShowStorePicker(true)}
+                onBlur={() => setTimeout(() => setEvtShowStorePicker(false), 180)}
+              />
+              {evtSelectedStore && (
+                <div className="evt-hint" style={{ color: '#5DB85A' }}>✓ {evtSelectedStore.name} · {evtSelectedStore.city}</div>
+              )}
+              {evtShowStorePicker && evtStoreSearch.length > 0 && (() => {
+                const matches = stores.filter(s =>
+                  s.name.toLowerCase().includes(evtStoreSearch.toLowerCase()) ||
+                  s.city.toLowerCase().includes(evtStoreSearch.toLowerCase())
+                ).slice(0, 7)
+                if (!matches.length) return null
+                return (
+                  <div className="store-picker-dropdown">
+                    {matches.map(s => (
+                      <div key={s.id} className="store-picker-item"
+                        onMouseDown={() => {
+                          setEvtSelectedStore(s)
+                          setEvtStoreSearch(s.name)
+                          setEvtStoreName(s.name)
+                          setEvtCity(s.city)
+                          setEvtStoreLat(s.lat)
+                          setEvtStoreLng(s.lng)
+                          setEvtShowStorePicker(false)
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, fontSize: 12 }}>{s.name}</div>
+                        <div style={{ fontSize: 10, color: 'var(--ghost)' }}>{s.city}, {s.state}</div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
             </div>
             <div className="evt-field">
               <label className="evt-label">City *</label>
@@ -4334,15 +4428,29 @@ export default function App() {
               </div>
               <div className="evt-field">
                 <label className="evt-label">Check-in Radius</label>
-                <select className="evt-select" value={evtQueueRadius} onChange={e => setEvtQueueRadius(e.target.value)}>
+                <select
+                  className="evt-select"
+                  value={evtQueueRadius}
+                  onChange={e => setEvtQueueRadius(e.target.value)}
+                  disabled={!!evtQueueRadius && !evtStoreLat && evtQueueRadius !== ''}
+                >
                   <option value="">Nationwide (no restriction)</option>
-                  <option value="10">Within 10 miles</option>
-                  <option value="25">Within 25 miles</option>
-                  <option value="50">Within 50 miles</option>
-                  <option value="100">Within 100 miles</option>
-                  <option value="200">Within 200 miles</option>
+                  <option value="0.5" disabled={!evtStoreLat}>Within 0.5 miles{!evtStoreLat ? ' — pick store below' : ''}</option>
+                  <option value="1"   disabled={!evtStoreLat}>Within 1 mile{!evtStoreLat ? ' — pick store below' : ''}</option>
+                  <option value="5"   disabled={!evtStoreLat}>Within 5 miles{!evtStoreLat ? ' — pick store below' : ''}</option>
+                  <option value="10"  disabled={!evtStoreLat}>Within 10 miles{!evtStoreLat ? ' — pick store below' : ''}</option>
+                  <option value="25"  disabled={!evtStoreLat}>Within 25 miles{!evtStoreLat ? ' — pick store below' : ''}</option>
                 </select>
-                <div className="evt-hint">Displayed as a requirement — honor-system enforced</div>
+                {!evtStoreLat && (
+                  <div className="evt-hint" style={{ color: 'rgba(193,125,14,0.8)' }}>
+                    Select a store from the list below to enable radius check-in
+                  </div>
+                )}
+                {evtStoreLat && (
+                  <div className="evt-hint" style={{ color: '#5DB85A' }}>
+                    ✓ Store location locked — distance will be verified on check-in
+                  </div>
+                )}
               </div>
             </div>
           )}
