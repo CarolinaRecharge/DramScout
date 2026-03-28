@@ -639,8 +639,52 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 16px 12px;
+  padding: 16px 16px 8px;
 }
+
+.event-type-filter {
+  display: flex;
+  gap: 6px;
+  padding: 0 16px 12px;
+  flex-wrap: wrap;
+}
+
+.btn-evt-type-filter {
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn-evt-type-filter:hover { border-color: var(--worn); color: var(--parchment); }
+.btn-evt-type-filter.active-drop  { border-color: var(--gold); color: var(--gold); background: rgba(193,125,14,0.1); }
+.btn-evt-type-filter.active-meetup { border-color: #4A9ECA; color: #4A9ECA; background: rgba(74,158,202,0.1); }
+.btn-evt-type-filter.active-tasting { border-color: #9E5EA8; color: #9E5EA8; background: rgba(158,94,168,0.1); }
+.btn-evt-type-filter.active-all { border-color: var(--parchment); color: var(--parchment); background: rgba(255,255,255,0.06); }
+
+.event-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid;
+  margin-right: 6px;
+}
+.event-type-badge.drop    { border-color: var(--gold);  color: var(--gold);  background: rgba(193,125,14,0.1); }
+.event-type-badge.meetup  { border-color: #4A9ECA; color: #4A9ECA; background: rgba(74,158,202,0.1); }
+.event-type-badge.tasting { border-color: #9E5EA8; color: #9E5EA8; background: rgba(158,94,168,0.1); }
 
 .event-card {
   margin: 0 12px 12px;
@@ -1020,6 +1064,29 @@ body {
   gap: 10px;
   flex-shrink: 0;
 }
+.evt-type-row {
+  display: flex;
+  gap: 8px;
+}
+.evt-type-btn {
+  flex: 1;
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  padding: 10px 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.evt-type-btn.sel-drop    { border-color: var(--gold);  color: var(--gold);  background: rgba(193,125,14,0.12); }
+.evt-type-btn.sel-meetup  { border-color: #4A9ECA; color: #4A9ECA; background: rgba(74,158,202,0.12); }
+.evt-type-btn.sel-tasting { border-color: #9E5EA8; color: #9E5EA8; background: rgba(158,94,168,0.12); }
+
 .btn-evt-cancel {
   flex: 1;
   background: none;
@@ -2425,8 +2492,11 @@ export default function App() {
   const [favorites, setFavorites] = useState(new Set())
   const [userSightings, setUserSightings] = useState([])
   const [deleteConfirm, setDeleteConfirm] = useState(null) // sighting id pending delete
+  // Event type filter
+  const [evtTypeFilter, setEvtTypeFilter] = useState('all')
   // Event creation form
   const [eventFormOpen, setEventFormOpen] = useState(false)
+  const [evtType, setEvtType] = useState('drop')
   const [evtName, setEvtName] = useState('')
   const [evtStoreName, setEvtStoreName] = useState('')
   const [evtCity, setEvtCity] = useState('')
@@ -2799,7 +2869,12 @@ export default function App() {
     bottles: e.bottles || [],
     rules: e.rules || {},
     attendees: e.attendee_count || 0,
+    type: e.event_type || 'drop',
   }))
+
+  const filteredActiveEvents = evtTypeFilter === 'all'
+    ? activeEvents
+    : activeEvents.filter(e => e.type === evtTypeFilter)
 
   // ── Near Me ────────────────────────────────────────────────────────────
   function handleNearMe() {
@@ -2867,7 +2942,10 @@ export default function App() {
     } else if (bottleList.length === 0 && evtOtherBottle.trim()) {
       bottleList = [evtOtherBottle.trim()]
     }
-    if (!evtName.trim() || !evtStoreName.trim() || !evtCity.trim() || !evtDate || !bottleList.length) return
+    // Bottles required for drops; optional for meet-ups and tastings
+    const bottlesRequired = evtType === 'drop'
+    if (!evtName.trim() || !evtStoreName.trim() || !evtCity.trim() || !evtDate) return
+    if (bottlesRequired && !bottleList.length) return
 
     const payload = {
       name: evtName.trim(),
@@ -2875,6 +2953,7 @@ export default function App() {
       city: evtCity.trim(),
       state: 'NC',
       event_date: new Date(evtDate).toISOString(),
+      event_type: evtType,
       bottles: bottleList,
       rules: {
         parking: evtParking.trim() || 'Not specified',
@@ -2894,6 +2973,7 @@ export default function App() {
 
     // Close & reset form
     setEventFormOpen(false)
+    setEvtType('drop')
     setEvtName(''); setEvtStoreName(''); setEvtCity(''); setEvtDate('')
     setEvtBottles([]); setEvtPendingBrand(''); setEvtPendingBottle(''); setEvtOtherBottle('')
     setEvtParking(''); setEvtOvernight(''); setEvtIdReq(''); setEvtLimit(''); setEvtRulesNotes('')
@@ -3324,9 +3404,11 @@ export default function App() {
       {activeTab === 'events' && (
         <section className="events-section">
           <div className="events-header">
-            <span className="feed-header-label">UPCOMING DROPS</span>
+            <span className="feed-header-label">
+              {evtTypeFilter === 'meetup' ? 'MEET-UPS' : evtTypeFilter === 'tasting' ? 'TASTINGS' : 'UPCOMING EVENTS'}
+            </span>
             <span className="feed-header-meta" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {activeEvents.filter(e => getEventStatus(e.date) !== 'past').length} SCHEDULED
+              {filteredActiveEvents.filter(e => getEventStatus(e.date) !== 'past').length} SCHEDULED
               {session && (
                 <button className="btn-post-event" onClick={() => setEventFormOpen(true)}>
                   + POST EVENT
@@ -3336,7 +3418,22 @@ export default function App() {
             <div className="feed-header-rule" />
           </div>
 
-          {activeEvents.map(event => {
+          <div className="event-type-filter">
+            {[
+              { key: 'all',     label: '🥃 ALL' },
+              { key: 'drop',    label: '🥃 DROPS' },
+              { key: 'meetup',  label: '🤝 MEET-UPS' },
+              { key: 'tasting', label: '🍷 TASTINGS' },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                className={`btn-evt-type-filter${evtTypeFilter === key ? ` active-${key}` : ''}`}
+                onClick={() => setEvtTypeFilter(key)}
+              >{label}</button>
+            ))}
+          </div>
+
+          {filteredActiveEvents.map(event => {
             const status = getEventStatus(event.date)
             const isGoing = rsvpd.has(event.id)
             return (
@@ -3350,6 +3447,9 @@ export default function App() {
                         flexShrink: 0,
                       }} />
                       {status === 'upcoming' ? 'UPCOMING' : status === 'today' ? 'TODAY' : 'PAST'}
+                    </span>
+                    <span className={`event-type-badge ${event.type}`}>
+                      {event.type === 'drop' ? '🥃 DROP' : event.type === 'meetup' ? '🤝 MEET-UP' : '🍷 TASTING'}
                     </span>
                     <span className="event-countdown">{getCountdown(event.date)}</span>
                   </div>
@@ -3378,7 +3478,9 @@ export default function App() {
                 <div className="event-divider" />
 
                 <div className="event-rules">
-                  <div className="event-rules-title">Drop Rules & Info</div>
+                  <div className="event-rules-title">
+                    {event.type === 'drop' ? 'Drop Rules & Info' : event.type === 'meetup' ? 'Meet-up Details' : 'Tasting Details'}
+                  </div>
                   <div className="event-rule-row">
                     <span className="event-rule-icon">🅿️</span>
                     <div className="event-rule-content">
@@ -3386,13 +3488,15 @@ export default function App() {
                       <span className="event-rule-text">{event.rules.parking}</span>
                     </div>
                   </div>
-                  <div className="event-rule-row">
-                    <span className="event-rule-icon">🌙</span>
-                    <div className="event-rule-content">
-                      <span className="event-rule-label">Overnight / Line Policy</span>
-                      <span className="event-rule-text">{event.rules.overnight}</span>
+                  {event.type === 'drop' && (
+                    <div className="event-rule-row">
+                      <span className="event-rule-icon">🌙</span>
+                      <div className="event-rule-content">
+                        <span className="event-rule-label">Overnight / Line Policy</span>
+                        <span className="event-rule-text">{event.rules.overnight}</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                   <div className="event-rule-row">
                     <span className="event-rule-icon">🪪</span>
                     <div className="event-rule-content">
@@ -3400,20 +3504,24 @@ export default function App() {
                       <span className="event-rule-text">{event.rules.id}</span>
                     </div>
                   </div>
-                  <div className="event-rule-row">
-                    <span className="event-rule-icon">📋</span>
-                    <div className="event-rule-content">
-                      <span className="event-rule-label">Bottle Limit</span>
-                      <span className="event-rule-text">{event.rules.limit}</span>
+                  {event.type === 'drop' && (
+                    <div className="event-rule-row">
+                      <span className="event-rule-icon">📋</span>
+                      <div className="event-rule-content">
+                        <span className="event-rule-label">Bottle Limit</span>
+                        <span className="event-rule-text">{event.rules.limit}</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="event-rule-row">
-                    <span className="event-rule-icon">💬</span>
-                    <div className="event-rule-content">
-                      <span className="event-rule-label">Community Notes</span>
-                      <span className="event-rule-text">{event.rules.notes}</span>
+                  )}
+                  {event.rules.notes ? (
+                    <div className="event-rule-row">
+                      <span className="event-rule-icon">💬</span>
+                      <div className="event-rule-content">
+                        <span className="event-rule-label">Community Notes</span>
+                        <span className="event-rule-text">{event.rules.notes}</span>
+                      </div>
                     </div>
-                  </div>
+                  ) : null}
                 </div>
 
                 <div className="event-card-footer">
@@ -3786,6 +3894,24 @@ export default function App() {
         </div>
 
         <div className="event-form-body">
+          {/* Event type */}
+          <div className="event-form-section">
+            <div className="event-form-section-title">Event Type</div>
+            <div className="evt-type-row">
+              {[
+                { key: 'drop',    label: '🥃 DROP' },
+                { key: 'meetup',  label: '🤝 MEET-UP' },
+                { key: 'tasting', label: '🍷 TASTING' },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  className={`evt-type-btn${evtType === key ? ` sel-${key}` : ''}`}
+                  onClick={() => setEvtType(key)}
+                >{label}</button>
+              ))}
+            </div>
+          </div>
+
           {/* Event details */}
           <div className="event-form-section">
             <div className="event-form-section-title">Event Info</div>
@@ -3809,7 +3935,9 @@ export default function App() {
 
           {/* Bottles */}
           <div className="event-form-section">
-            <div className="event-form-section-title">Bottles Being Released *</div>
+            <div className="event-form-section-title">
+              {evtType === 'drop' ? 'Bottles Being Released *' : evtType === 'tasting' ? 'Bottles Being Tasted (optional)' : 'Featured Bottles (optional)'}
+            </div>
             <div className="evt-field">
               <label className="evt-label">Brand</label>
               <select className="evt-select" value={evtPendingBrand} onChange={e => { setEvtPendingBrand(e.target.value); setEvtPendingBottle(''); setEvtOtherBottle('') }}>
@@ -3860,23 +3988,29 @@ export default function App() {
 
           {/* Rules */}
           <div className="event-form-section">
-            <div className="event-form-section-title">Drop Rules &amp; Info (optional)</div>
+            <div className="event-form-section-title">
+              {evtType === 'drop' ? 'Drop Rules & Info (optional)' : evtType === 'meetup' ? 'Meet-up Details (optional)' : 'Tasting Details (optional)'}
+            </div>
             <div className="evt-field">
               <label className="evt-label">Parking</label>
               <input className="evt-input" placeholder="e.g. Lot parking available" value={evtParking} onChange={e => setEvtParking(e.target.value)} />
             </div>
-            <div className="evt-field">
-              <label className="evt-label">Overnight / Line Policy</label>
-              <input className="evt-input" placeholder="e.g. No overnight lines" value={evtOvernight} onChange={e => setEvtOvernight(e.target.value)} />
-            </div>
+            {evtType === 'drop' && (
+              <div className="evt-field">
+                <label className="evt-label">Overnight / Line Policy</label>
+                <input className="evt-input" placeholder="e.g. No overnight lines" value={evtOvernight} onChange={e => setEvtOvernight(e.target.value)} />
+              </div>
+            )}
             <div className="evt-field">
               <label className="evt-label">ID Requirements</label>
               <input className="evt-input" placeholder="e.g. Valid ID required, 21+" value={evtIdReq} onChange={e => setEvtIdReq(e.target.value)} />
             </div>
-            <div className="evt-field">
-              <label className="evt-label">Bottle Limit</label>
-              <input className="evt-input" placeholder="e.g. One per customer" value={evtLimit} onChange={e => setEvtLimit(e.target.value)} />
-            </div>
+            {evtType === 'drop' && (
+              <div className="evt-field">
+                <label className="evt-label">Bottle Limit</label>
+                <input className="evt-input" placeholder="e.g. One per customer" value={evtLimit} onChange={e => setEvtLimit(e.target.value)} />
+              </div>
+            )}
             <div className="evt-field">
               <label className="evt-label">Community Notes</label>
               <input className="evt-input" placeholder="Any other details..." value={evtRulesNotes} onChange={e => setEvtRulesNotes(e.target.value)} />
@@ -3889,7 +4023,7 @@ export default function App() {
           <button
             className="btn-evt-submit"
             onClick={handlePostEvent}
-            disabled={!evtName.trim() || !evtStoreName.trim() || !evtCity.trim() || !evtDate || (evtBottles.length === 0 && !evtPendingBottle && !evtOtherBottle.trim())}
+            disabled={!evtName.trim() || !evtStoreName.trim() || !evtCity.trim() || !evtDate || (evtType === 'drop' && evtBottles.length === 0 && !evtPendingBottle && !evtOtherBottle.trim())}
           >
             POST EVENT
           </button>
