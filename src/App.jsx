@@ -1223,6 +1223,92 @@ body {
   transform: translateX(-50%) translateY(0);
 }
 
+/* ─── BOURBON CATALOG FORM ───────────────────────────────────────────────── */
+.bottle-select {
+  width: 100%;
+  background: var(--card-2);
+  border: 1px solid var(--rule);
+  color: var(--paper);
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  appearance: auto;
+  margin-bottom: 8px;
+}
+.bottle-select:focus { outline: none; border-color: var(--gold); }
+.bottle-select option { background: var(--card-2); color: var(--paper); }
+
+.bottle-added-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.bottle-added-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--gold-glow);
+  border: 1px solid var(--gold);
+  border-radius: 20px;
+  padding: 4px 10px 4px 12px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--gold-light);
+  letter-spacing: 0.04em;
+}
+.bottle-added-remove {
+  background: none;
+  border: none;
+  color: var(--ghost);
+  cursor: pointer;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+.bottle-added-remove:hover { color: var(--paper); }
+
+.btn-add-bottle {
+  width: 100%;
+  background: transparent;
+  border: 1px dashed var(--worn);
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 16px;
+  transition: border-color 0.2s, color 0.2s;
+}
+.btn-add-bottle:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ─── SEARCH BOX ─────────────────────────────────────────────────────────── */
+.search-box {
+  padding: 8px 16px 4px;
+  background: var(--page);
+}
+.search-input {
+  width: 100%;
+  background: var(--card-2);
+  border: 1px solid var(--rule);
+  color: var(--paper);
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+.search-input:focus { outline: none; border-color: var(--gold); }
+.search-input::placeholder { color: var(--ghost); }
+
 /* ─── LEAFLET OVERRIDES ───────────────────────────────────────────────────── */
 .leaflet-container {
   background: #0E0B08 !important;
@@ -2043,14 +2129,37 @@ function getCountdown(date) {
   return `in ${Math.round(hrs / 24)}d`
 }
 
-const FILTERS = ['ALL', "BLANTON'S", 'WELLER', 'EAGLE RARE', 'E.H. TAYLOR', 'FOUR ROSES', 'BUFFALO TRACE']
-
-const BOTTLE_OPTIONS = [
-  "Blanton's Original", "Blanton's Gold", "Blanton's Straight",
-  "Eagle Rare 10yr", "Weller SR", "Weller 12", "Weller Full Proof",
-  "E.H. Taylor SB", "E.H. Taylor Warehouse C",
-  "Four Roses LE", "Four Roses SiB", "Buffalo Trace", "Other"
+const BOURBON_CATALOG = [
+  { brand: "Blanton's", bottles: ["Blanton's Original Single Barrel","Blanton's Gold Edition","Blanton's Straight from the Barrel","Blanton's Special Reserve"] },
+  { brand: "Weller", bottles: ["Weller Special Reserve","Weller Antique 107","Weller 12 Year","Weller Full Proof","Weller Single Barrel"] },
+  { brand: "Colonel E.H. Taylor", bottles: ["E.H. Taylor Small Batch","E.H. Taylor Single Barrel","E.H. Taylor Barrel Proof","E.H. Taylor Four Grain","E.H. Taylor Warehouse C","E.H. Taylor Seasoned Wood","E.H. Taylor Cured Oak","E.H. Taylor Old Fashioned Sour Mash"] },
+  { brand: "Eagle Rare", bottles: ["Eagle Rare 10 Year","Eagle Rare 17 Year (BTAC)"] },
+  { brand: "Pappy Van Winkle", bottles: ["Old Rip Van Winkle 10 Year","Van Winkle Special Reserve 12 Year","Pappy Van Winkle 15 Year","Pappy Van Winkle 20 Year","Pappy Van Winkle 23 Year","Van Winkle Family Reserve Rye 13 Year"] },
+  { brand: "Buffalo Trace Antique Collection", bottles: ["George T. Stagg","William Larue Weller","Thomas H. Handy Sazerac Rye","Sazerac 18 Year Rye"] },
+  { brand: "Stagg", bottles: ["Stagg Barrel Proof"] },
+  { brand: "Four Roses", bottles: ["Four Roses Limited Edition Small Batch","Four Roses Limited Edition Small Batch Select","Four Roses Limited Edition Single Barrel","Four Roses Elliott's Select","Four Roses Al Young 50th Anniversary"] },
+  { brand: "Elijah Craig", bottles: ["Elijah Craig Barrel Proof Batch A","Elijah Craig Barrel Proof Batch B","Elijah Craig Barrel Proof Batch C","Elijah Craig 18 Year","Elijah Craig 23 Year"] },
+  { brand: "Old Fitzgerald", bottles: ["Old Fitzgerald BiB Spring Release","Old Fitzgerald BiB Fall Release"] },
+  { brand: "Parker's Heritage", bottles: ["Parker's Heritage Collection (Annual Release)"] },
+  { brand: "Wild Turkey Master's Keep", bottles: ["Master's Keep Bottled in Bond","Master's Keep Revival","Master's Keep Decades","Master's Keep Unforgiven","Master's Keep One","Master's Keep Cornerstone","Master's Keep Voyage"] },
+  { brand: "Russell's Reserve", bottles: ["Russell's Reserve Single Barrel Bourbon","Russell's Reserve Single Barrel Rye"] },
+  { brand: "Woodford Reserve", bottles: ["Woodford Reserve Batch Proof","Woodford Reserve Double Double Oaked","Woodford Reserve Master's Collection"] },
+  { brand: "Angel's Envy", bottles: ["Angel's Envy Cask Strength","Angel's Envy Port Finish"] },
+  { brand: "Michter's", bottles: ["Michter's 10 Year Bourbon","Michter's 20 Year Bourbon","Michter's 25 Year Bourbon","Michter's Toasted Barrel Finish Bourbon","Michter's Toasted Barrel Finish Rye","Michter's Celebration Sour Mash"] },
+  { brand: "Booker's", bottles: ["Booker's (Annual Batch Release)"] },
+  { brand: "Knob Creek", bottles: ["Knob Creek Single Barrel Reserve","Knob Creek 12 Year","Knob Creek 15 Year","Knob Creek 25th Anniversary"] },
+  { brand: "Larceny", bottles: ["Larceny Barrel Proof Batch A","Larceny Barrel Proof Batch B","Larceny Barrel Proof Batch C"] },
+  { brand: "1792", bottles: ["1792 Single Barrel","1792 Full Proof","1792 Sweet Wheat","1792 Aged 12 Years","1792 High Rye","1792 Port Finish","1792 Bottled in Bond"] },
+  { brand: "Old Forester", bottles: ["Old Forester Birthday Bourbon","Old Forester 150th Anniversary","Old Forester President's Collection"] },
+  { brand: "Barrell Craft Spirits", bottles: ["Barrell Bourbon (Batch Release)","Barrell Dovetail","Barrell Seagrass","Barrell Armida"] },
+  { brand: "High West", bottles: ["High West Midwinter Night's Dram"] },
+  { brand: "Orphan Barrel / Rhetoric", bottles: ["Rhetoric 20 Year","Rhetoric 21 Year","Rhetoric 22 Year","Rhetoric 23 Year","Rhetoric 24 Year"] },
+  { brand: "Maker's Mark", bottles: ["Maker's Mark Cask Strength","Maker's Mark Private Select","Maker's Mark Limited Release"] },
+  { brand: "New Riff", bottles: ["New Riff Single Barrel Bourbon","New Riff Single Barrel Rye","New Riff Backsetter"] },
+  { brand: "Buffalo Trace", bottles: ["Buffalo Trace"] },
 ]
+
+const FILTERS = ['ALL', "BLANTON'S", 'WELLER', 'PAPPY', 'E.H. TAYLOR', 'FOUR ROSES', 'EAGLE RARE', 'STAGG', 'ELIJAH CRAIG', 'LARCENY']
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────
 function getFreshnessTier(hoursOld) {
@@ -2094,18 +2203,27 @@ function getTierLabel(tier, hoursOld) {
   return formatAge(hoursOld)
 }
 
-function filterMatches(sighting, filter) {
+function filterMatches(sighting, filter, search) {
+  const q = (search || '').toLowerCase().trim()
+  if (q) {
+    return sighting.bottles.some(b => b.toLowerCase().includes(q)) ||
+           (sighting.store || '').toLowerCase().includes(q) ||
+           (sighting.city || '').toLowerCase().includes(q)
+  }
   if (filter === 'ALL') return true
   const f = filter.toLowerCase()
   return sighting.bottles.some(b => {
     const bl = b.toLowerCase()
-    if (f === "blanton's") return bl.includes("blanton")
-    if (f === 'weller') return bl.includes("weller")
-    if (f === 'eagle rare') return bl.includes("eagle rare")
-    if (f === 'e.h. taylor') return bl.includes("e.h. taylor") || bl.includes("eh taylor")
-    if (f === 'four roses') return bl.includes("four roses")
-    if (f === 'buffalo trace') return bl.includes("buffalo trace")
-    return false
+    if (f === "blanton's") return bl.includes('blanton')
+    if (f === 'weller') return bl.includes('weller')
+    if (f === 'eagle rare') return bl.includes('eagle rare')
+    if (f === 'e.h. taylor') return bl.includes('e.h. taylor') || bl.includes('eh taylor')
+    if (f === 'four roses') return bl.includes('four roses')
+    if (f === 'pappy') return bl.includes('pappy') || bl.includes('van winkle') || bl.includes('old rip')
+    if (f === 'stagg') return bl.includes('stagg')
+    if (f === 'elijah craig') return bl.includes('elijah craig')
+    if (f === 'larceny') return bl.includes('larceny')
+    return bl.includes(f)
   })
 }
 
@@ -2148,6 +2266,9 @@ export default function App() {
   // ── Local/mock fallback sightings ──────────────────────────────────────
   const [sightings, setSightings] = useState(INITIAL_SIGHTINGS)
   const [activeFilter, setActiveFilter] = useState('ALL')
+  const [bottleSearch, setBottleSearch] = useState('')
+  const [pendingBrand, setPendingBrand] = useState('')
+  const [pendingBottle, setPendingBottle] = useState('')
   const [confirmed, setConfirmed] = useState(new Set())
   const [sheetOpen, setSheetOpen] = useState(false)
   const [toastVisible, setToastVisible] = useState(false)
@@ -2375,7 +2496,7 @@ export default function App() {
     const visible = sightingList.filter(s => {
       const hoursOld = (now - s.createdAt) / (1000 * 60 * 60)
       if (hoursOld > 336) return false // 14 days
-      return filterMatches(s, filter)
+      return filterMatches(s, filter, bottleSearch)
     })
 
     visible.forEach(s => {
@@ -2499,7 +2620,7 @@ export default function App() {
 
   const filteredSightings = allSightings.filter(s => {
     if (s.hoursAgo > 336) return false
-    return filterMatches(s, activeFilter)
+    return filterMatches(s, activeFilter, bottleSearch)
   })
 
   // Events: prefer DB data, fall back to hard-coded EVENTS array
@@ -2586,18 +2707,35 @@ export default function App() {
     toastTimerRef.current = setTimeout(() => setToastVisible(false), 3000)
   }
 
-  // ── Toggle bottle selection ────────────────────────────────────────────
-  function toggleBottle(bottle) {
-    setSelectedBottles(prev =>
-      prev.includes(bottle) ? prev.filter(b => b !== bottle) : [...prev, bottle]
-    )
+  // ── Add pending brand/bottle to the sighting's bottle list ─────────────
+  function handleAddBottle() {
+    let name = ''
+    if (pendingBrand === '__other__') {
+      name = otherBottle.trim()
+    } else if (pendingBottle === '__other__') {
+      name = otherBottle.trim()
+    } else {
+      name = pendingBottle
+    }
+    if (!name || !pendingBrand) return
+    if (selectedBottles.includes(name)) return
+    setSelectedBottles(prev => [...prev, name])
+    setPendingBrand('')
+    setPendingBottle('')
+    setOtherBottle('')
   }
 
   // ── Submit new sighting ────────────────────────────────────────────────
   async function handlePost() {
-    const bottleList = selectedBottles.includes('Other') && otherBottle.trim()
-      ? [...selectedBottles.filter(b => b !== 'Other'), otherBottle.trim()]
-      : selectedBottles
+    // If user filled in a pending selection but didn't click Add, auto-add it
+    let bottleList = [...selectedBottles]
+    if (bottleList.length === 0 && pendingBottle && pendingBottle !== '__other__') {
+      bottleList = [pendingBottle]
+    } else if (bottleList.length === 0 && pendingBrand === '__other__' && otherBottle.trim()) {
+      bottleList = [otherBottle.trim()]
+    } else if (bottleList.length === 0 && pendingBottle === '__other__' && otherBottle.trim()) {
+      bottleList = [otherBottle.trim()]
+    }
 
     if (!bottleList.length || !storeName.trim()) return
 
@@ -2634,6 +2772,8 @@ export default function App() {
     setCityName('')
     setNotes('')
     setOtherBottle('')
+    setPendingBrand('')
+    setPendingBottle('')
     setReporterHandle('')
     setStoreSearch('')
     setSelectedStore(null)
@@ -2717,6 +2857,9 @@ export default function App() {
     setPrefillCoords(null)
     setStoreSearch('')
     setSelectedStore(null)
+    setPendingBrand('')
+    setPendingBottle('')
+    setBottleSearch('')
     if (!prefillStore) setStoreName('')
   }
 
@@ -2823,12 +2966,22 @@ export default function App() {
       )}
 
       {/* ── FILTER STRIP ────────────────────────────────────────────── */}
+      {activeTab === 'scout' && (
+        <div className="search-box">
+          <input
+            className="search-input"
+            placeholder="Search by bottle, brand, or store..."
+            value={bottleSearch}
+            onChange={e => { setBottleSearch(e.target.value); if (e.target.value) setActiveFilter('ALL') }}
+          />
+        </div>
+      )}
       <div className="filter-strip" style={{ display: activeTab === 'scout' ? undefined : 'none' }}>
         {FILTERS.map(f => (
           <button
             key={f}
-            className={`filter-chip${activeFilter === f ? ' active' : ''}`}
-            onClick={() => setActiveFilter(f)}
+            className={`filter-chip${activeFilter === f && !bottleSearch ? ' active' : ''}`}
+            onClick={() => { setActiveFilter(f); setBottleSearch('') }}
           >
             {f}
           </button>
@@ -3164,27 +3317,53 @@ export default function App() {
         <div ref={sheetBodyRef} className="sheet-body">
           {/* Bottles */}
           <label className="field-label">BOTTLE(S) SPOTTED</label>
-          <div className="bottle-select-grid">
-            {BOTTLE_OPTIONS.map(b => (
-              <button
-                key={b}
-                className={`bottle-select-chip${selectedBottles.includes(b) ? ' selected' : ''}`}
-                onClick={() => toggleBottle(b)}
-              >
-                {b}
-              </button>
+          {selectedBottles.length > 0 && (
+            <div className="bottle-added-list">
+              {selectedBottles.map((b, i) => (
+                <div key={i} className="bottle-added-item">
+                  <span>🍾 {b}</span>
+                  <button className="bottle-added-remove" onClick={() => setSelectedBottles(prev => prev.filter((_, j) => j !== i))}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <select
+            className="bottle-select"
+            value={pendingBrand}
+            onChange={e => { setPendingBrand(e.target.value); setPendingBottle(''); setOtherBottle('') }}
+          >
+            <option value="">— Select a brand —</option>
+            {BOURBON_CATALOG.map(({ brand }) => (
+              <option key={brand} value={brand}>{brand}</option>
             ))}
-          </div>
-          {selectedBottles.includes('Other') && (
-            <div className="field-group other-input">
+            <option value="__other__">Other (not listed)</option>
+          </select>
+          {pendingBrand && pendingBrand !== '__other__' && (
+            <select
+              className="bottle-select"
+              value={pendingBottle}
+              onChange={e => { setPendingBottle(e.target.value); setOtherBottle('') }}
+            >
+              <option value="">— Select a bottle —</option>
+              {BOURBON_CATALOG.find(({ brand }) => brand === pendingBrand)?.bottles.map(bottle => (
+                <option key={bottle} value={bottle}>{bottle}</option>
+              ))}
+              <option value="__other__">Other (not listed)</option>
+            </select>
+          )}
+          {(pendingBrand === '__other__' || pendingBottle === '__other__') && (
+            <div className="field-group">
               <input
                 className="text-input"
-                placeholder="Bottle name..."
+                placeholder={pendingBrand === '__other__' ? 'Full bottle name (e.g. Maker\'s Mark RC6)...' : 'Bottle label...'}
                 value={otherBottle}
                 onChange={e => setOtherBottle(e.target.value)}
               />
             </div>
           )}
+          <button className="btn-add-bottle" onClick={handleAddBottle}>
+            + ADD BOTTLE
+          </button>
 
           {/* Store Picker */}
           <label className="field-label">STORE</label>
