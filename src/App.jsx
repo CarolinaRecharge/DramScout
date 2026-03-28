@@ -2942,10 +2942,7 @@ export default function App() {
     } else if (bottleList.length === 0 && evtOtherBottle.trim()) {
       bottleList = [evtOtherBottle.trim()]
     }
-    // Bottles required for drops; optional for meet-ups and tastings
-    const bottlesRequired = evtType === 'drop'
     if (!evtName.trim() || !evtStoreName.trim() || !evtCity.trim() || !evtDate) return
-    if (bottlesRequired && !bottleList.length) return
 
     const payload = {
       name: evtName.trim(),
@@ -3936,7 +3933,7 @@ export default function App() {
           {/* Bottles */}
           <div className="event-form-section">
             <div className="event-form-section-title">
-              {evtType === 'drop' ? 'Bottles Being Released *' : evtType === 'tasting' ? 'Bottles Being Tasted (optional)' : 'Featured Bottles (optional)'}
+              {evtType === 'tasting' ? 'Bottles Being Tasted (optional)' : evtType === 'meetup' ? 'Featured Bottles (optional)' : 'Bottles Being Released (optional)'}
             </div>
             <div className="evt-field">
               <label className="evt-label">Brand</label>
@@ -4023,7 +4020,7 @@ export default function App() {
           <button
             className="btn-evt-submit"
             onClick={handlePostEvent}
-            disabled={!evtName.trim() || !evtStoreName.trim() || !evtCity.trim() || !evtDate || (evtType === 'drop' && evtBottles.length === 0 && !evtPendingBottle && !evtOtherBottle.trim())}
+            disabled={!evtName.trim() || !evtStoreName.trim() || !evtCity.trim() || !evtDate}
           >
             POST EVENT
           </button>
