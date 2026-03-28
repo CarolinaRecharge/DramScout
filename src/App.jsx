@@ -3,6 +3,7 @@ import {
   supabase, getFingerprint,
   fetchStores, fetchSightings, fetchEvents,
   postSighting, confirmSighting, toggleEventRsvp,
+  postEvent, deleteEvent,
   subscribeToSightings,
   signInWithGoogle, signOut, getSession, onAuthStateChange,
   fetchUserSightings, fetchUserFavorites, toggleStoreFavorite, deleteSighting,
@@ -862,6 +863,223 @@ body {
   padding: 0 14px 12px;
   letter-spacing: 0.04em;
 }
+
+/* ─── EVENT FORM SHEET ───────────────────────────────────────────────────── */
+.event-form-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 305;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.event-form-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+.event-form-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) translateY(100%);
+  width: 100%;
+  max-width: 480px;
+  height: 88dvh;
+  background: var(--page);
+  border-radius: 16px 16px 0 0;
+  border-top: 1px solid var(--rule);
+  z-index: 310;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  overflow: hidden;
+}
+.event-form-sheet.open {
+  transform: translateX(-50%) translateY(0);
+}
+.event-form-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  -webkit-overflow-scrolling: touch;
+}
+.event-form-section {
+  margin-bottom: 20px;
+}
+.event-form-section-title {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
+}
+.evt-field {
+  margin-bottom: 12px;
+}
+.evt-label {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ghost);
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 5px;
+}
+.evt-input {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--parchment);
+  font-family: 'Courier Prime', monospace;
+  font-size: 13px;
+  padding: 9px 12px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.evt-input:focus { border-color: var(--gold); }
+.evt-select {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--parchment);
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  padding: 9px 12px;
+  box-sizing: border-box;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.evt-select:focus { border-color: var(--gold); }
+.evt-select option { background: var(--card); color: var(--parchment); }
+.evt-bottle-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.evt-bottle-row .evt-select { flex: 1; }
+.btn-evt-add-bottle {
+  background: rgba(193,125,14,0.12);
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  color: var(--gold);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 9px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.btn-evt-add-bottle:hover { background: rgba(193,125,14,0.22); }
+.evt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.evt-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(193,125,14,0.12);
+  border: 1px solid rgba(193,125,14,0.35);
+  border-radius: 12px;
+  padding: 3px 10px 3px 10px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--parchment);
+}
+.evt-chip-remove {
+  background: none;
+  border: none;
+  color: var(--ghost);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  margin-left: 2px;
+}
+.evt-chip-remove:hover { color: var(--urgent); }
+.event-form-footer {
+  padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--rule);
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.btn-evt-cancel {
+  flex: 1;
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-evt-cancel:hover { border-color: var(--parchment); color: var(--parchment); }
+.btn-evt-submit {
+  flex: 2;
+  background: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  color: var(--ink);
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 12px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-evt-submit:hover { opacity: 0.85; }
+.btn-evt-submit:disabled { opacity: 0.4; cursor: default; }
+.btn-post-event {
+  background: rgba(193,125,14,0.1);
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  color: var(--gold);
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.btn-post-event:hover { background: rgba(193,125,14,0.22); }
+.btn-delete-event {
+  background: none;
+  border: 1px solid var(--urgent);
+  border-radius: 6px;
+  color: var(--urgent);
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-delete-event:hover { background: rgba(156,28,28,0.1); }
 
 /* ─── FAB ─────────────────────────────────────────────────────────────────── */
 .fab {
@@ -2207,6 +2425,22 @@ export default function App() {
   const [favorites, setFavorites] = useState(new Set())
   const [userSightings, setUserSightings] = useState([])
   const [deleteConfirm, setDeleteConfirm] = useState(null) // sighting id pending delete
+  // Event creation form
+  const [eventFormOpen, setEventFormOpen] = useState(false)
+  const [evtName, setEvtName] = useState('')
+  const [evtStoreName, setEvtStoreName] = useState('')
+  const [evtCity, setEvtCity] = useState('')
+  const [evtDate, setEvtDate] = useState('')
+  const [evtBottles, setEvtBottles] = useState([])
+  const [evtPendingBrand, setEvtPendingBrand] = useState('')
+  const [evtPendingBottle, setEvtPendingBottle] = useState('')
+  const [evtOtherBottle, setEvtOtherBottle] = useState('')
+  const [evtParking, setEvtParking] = useState('')
+  const [evtOvernight, setEvtOvernight] = useState('')
+  const [evtIdReq, setEvtIdReq] = useState('')
+  const [evtLimit, setEvtLimit] = useState('')
+  const [evtRulesNotes, setEvtRulesNotes] = useState('')
+  const [deleteEventConfirm, setDeleteEventConfirm] = useState(null) // event id pending delete
   // Store picker
   const [storeSearch, setStoreSearch] = useState('')
   const [selectedStore, setSelectedStore] = useState(null)
@@ -2609,6 +2843,82 @@ export default function App() {
     } else {
       alert(`Could not delete sighting: ${error}`)
     }
+  }
+
+  // ── Event bottle helper ────────────────────────────────────────────────
+  function handleAddEvtBottle() {
+    let name = ''
+    if (evtPendingBrand === '__other__') name = evtOtherBottle.trim()
+    else if (evtPendingBottle === '__other__') name = evtOtherBottle.trim()
+    else name = evtPendingBottle
+    if (!name || !evtPendingBrand) return
+    if (evtBottles.includes(name)) return
+    setEvtBottles(prev => [...prev, name])
+    setEvtPendingBrand('')
+    setEvtPendingBottle('')
+    setEvtOtherBottle('')
+  }
+
+  // ── Post a new event ───────────────────────────────────────────────────
+  async function handlePostEvent() {
+    let bottleList = [...evtBottles]
+    if (bottleList.length === 0 && evtPendingBottle && evtPendingBottle !== '__other__') {
+      bottleList = [evtPendingBottle]
+    } else if (bottleList.length === 0 && evtOtherBottle.trim()) {
+      bottleList = [evtOtherBottle.trim()]
+    }
+    if (!evtName.trim() || !evtStoreName.trim() || !evtCity.trim() || !evtDate || !bottleList.length) return
+
+    const payload = {
+      name: evtName.trim(),
+      store: evtStoreName.trim(),
+      city: evtCity.trim(),
+      state: 'NC',
+      event_date: new Date(evtDate).toISOString(),
+      bottles: bottleList,
+      rules: {
+        parking: evtParking.trim() || 'Not specified',
+        overnight: evtOvernight.trim() || 'Not specified',
+        id: evtIdReq.trim() || 'Valid ID required',
+        limit: evtLimit.trim() || 'Not specified',
+        notes: evtRulesNotes.trim() || '',
+      },
+      user_id: session?.user?.id || null,
+      attendee_count: 0,
+    }
+
+    // Optimistic add
+    const tempId = `local-evt-${Date.now()}`
+    const optimistic = { ...payload, id: tempId, event_date: payload.event_date }
+    setDbEvents(prev => [...(prev || []), optimistic])
+
+    // Close & reset form
+    setEventFormOpen(false)
+    setEvtName(''); setEvtStoreName(''); setEvtCity(''); setEvtDate('')
+    setEvtBottles([]); setEvtPendingBrand(''); setEvtPendingBottle(''); setEvtOtherBottle('')
+    setEvtParking(''); setEvtOvernight(''); setEvtIdReq(''); setEvtLimit(''); setEvtRulesNotes('')
+
+    if (supabase) {
+      const saved = await postEvent(payload)
+      if (saved) {
+        // Replace temp with real DB row
+        setDbEvents(prev => (prev || []).map(e => e.id === tempId ? saved : e))
+      } else {
+        setDbEvents(prev => (prev || []).filter(e => e.id !== tempId))
+        alert('Could not save event. Please try again.')
+      }
+    }
+  }
+
+  // ── Delete an event ────────────────────────────────────────────────────
+  async function handleDeleteEvent(id) {
+    if (!session?.user?.id) return
+    setDeleteEventConfirm(null)
+    if (supabase) {
+      const { ok, error } = await deleteEvent(id, session.user.id)
+      if (!ok) { alert(`Could not delete event: ${error}`); return }
+    }
+    setDbEvents(prev => (prev || []).filter(e => e.id !== id))
   }
 
   async function handleToggleFavorite(storeId) {
@@ -3015,7 +3325,14 @@ export default function App() {
         <section className="events-section">
           <div className="events-header">
             <span className="feed-header-label">UPCOMING DROPS</span>
-            <span className="feed-header-meta">{activeEvents.filter(e => getEventStatus(e.date) !== 'past').length} SCHEDULED</span>
+            <span className="feed-header-meta" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {activeEvents.filter(e => getEventStatus(e.date) !== 'past').length} SCHEDULED
+              {session && (
+                <button className="btn-post-event" onClick={() => setEventFormOpen(true)}>
+                  + POST EVENT
+                </button>
+              )}
+            </span>
             <div className="feed-header-rule" />
           </div>
 
@@ -3112,7 +3429,13 @@ export default function App() {
                   >
                     {isGoing ? "✓ I'M GOING" : status === 'past' ? 'PAST EVENT' : "I'LL BE THERE"}
                   </button>
-                  <button className="btn-share">SHARE</button>
+                  {session?.user?.id && event.user_id === session.user.id ? (
+                    <button className="btn-delete-event" onClick={() => setDeleteEventConfirm(event.id)}>
+                      DELETE
+                    </button>
+                  ) : (
+                    <button className="btn-share">SHARE</button>
+                  )}
                 </div>
                 <div className="event-attendees">
                   {isGoing
@@ -3429,6 +3752,149 @@ export default function App() {
           </div>
         </>
       )}
+
+      {/* ── DELETE EVENT CONFIRM MODAL ───────────────────────────────── */}
+      {deleteEventConfirm && (
+        <>
+          <div className="modal-overlay" onClick={() => setDeleteEventConfirm(null)} />
+          <div className="modal">
+            <div className="modal-title">DELETE EVENT?</div>
+            <div className="modal-body">
+              This event will be permanently removed. RSVPs will also be lost. This cannot be undone.
+            </div>
+            <div className="modal-actions">
+              <button className="modal-btn-cancel" onClick={() => setDeleteEventConfirm(null)}>
+                CANCEL
+              </button>
+              <button className="modal-btn-confirm" onClick={() => handleDeleteEvent(deleteEventConfirm)}>
+                DELETE
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── CREATE EVENT FORM SHEET ──────────────────────────────────── */}
+      <div className={`event-form-overlay${eventFormOpen ? ' open' : ''}`} onClick={() => setEventFormOpen(false)} />
+      <div className={`event-form-sheet${eventFormOpen ? ' open' : ''}`}>
+        {/* Header */}
+        <div className="sheet-header">
+          <div className="sheet-handle-wrap" style={{ padding: '12px 0 4px' }}>
+            <div className="sheet-handle" />
+          </div>
+          <div className="sheet-title">POST AN EVENT DROP</div>
+        </div>
+
+        <div className="event-form-body">
+          {/* Event details */}
+          <div className="event-form-section">
+            <div className="event-form-section-title">Event Info</div>
+            <div className="evt-field">
+              <label className="evt-label">Event Name *</label>
+              <input className="evt-input" placeholder="e.g. Blanton's Single Barrel Drop" value={evtName} onChange={e => setEvtName(e.target.value)} />
+            </div>
+            <div className="evt-field">
+              <label className="evt-label">Store Name *</label>
+              <input className="evt-input" placeholder="e.g. ABC Fine Wine & Spirits" value={evtStoreName} onChange={e => setEvtStoreName(e.target.value)} />
+            </div>
+            <div className="evt-field">
+              <label className="evt-label">City *</label>
+              <input className="evt-input" placeholder="e.g. Raleigh" value={evtCity} onChange={e => setEvtCity(e.target.value)} />
+            </div>
+            <div className="evt-field">
+              <label className="evt-label">Date &amp; Time *</label>
+              <input className="evt-input" type="datetime-local" value={evtDate} onChange={e => setEvtDate(e.target.value)} style={{ colorScheme: 'dark' }} />
+            </div>
+          </div>
+
+          {/* Bottles */}
+          <div className="event-form-section">
+            <div className="event-form-section-title">Bottles Being Released *</div>
+            <div className="evt-field">
+              <label className="evt-label">Brand</label>
+              <select className="evt-select" value={evtPendingBrand} onChange={e => { setEvtPendingBrand(e.target.value); setEvtPendingBottle(''); setEvtOtherBottle('') }}>
+                <option value="">— Select a brand —</option>
+                {BOURBON_CATALOG.map(({ brand }) => (
+                  <option key={brand} value={brand}>{brand}</option>
+                ))}
+                <option value="__other__">Other (not listed)</option>
+              </select>
+            </div>
+            {evtPendingBrand && evtPendingBrand !== '__other__' && (
+              <div className="evt-field">
+                <label className="evt-label">Bottle</label>
+                <div className="evt-bottle-row">
+                  <select className="evt-select" value={evtPendingBottle} onChange={e => { setEvtPendingBottle(e.target.value); setEvtOtherBottle('') }}>
+                    <option value="">— Select a bottle —</option>
+                    {(BOURBON_CATALOG.find(c => c.brand === evtPendingBrand)?.bottles || []).map(b => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                    <option value="__other__">Other / not listed</option>
+                  </select>
+                  {evtPendingBottle && evtPendingBottle !== '__other__' && (
+                    <button className="btn-evt-add-bottle" onClick={handleAddEvtBottle}>ADD</button>
+                  )}
+                </div>
+              </div>
+            )}
+            {(evtPendingBrand === '__other__' || evtPendingBottle === '__other__') && (
+              <div className="evt-field">
+                <label className="evt-label">Enter Bottle Name</label>
+                <div className="evt-bottle-row">
+                  <input className="evt-input" placeholder="Bottle name..." value={evtOtherBottle} onChange={e => setEvtOtherBottle(e.target.value)} />
+                  <button className="btn-evt-add-bottle" onClick={handleAddEvtBottle}>ADD</button>
+                </div>
+              </div>
+            )}
+            {evtBottles.length > 0 && (
+              <div className="evt-chips">
+                {evtBottles.map(b => (
+                  <span key={b} className="evt-chip">
+                    🍾 {b}
+                    <button className="evt-chip-remove" onClick={() => setEvtBottles(prev => prev.filter(x => x !== b))}>×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Rules */}
+          <div className="event-form-section">
+            <div className="event-form-section-title">Drop Rules &amp; Info (optional)</div>
+            <div className="evt-field">
+              <label className="evt-label">Parking</label>
+              <input className="evt-input" placeholder="e.g. Lot parking available" value={evtParking} onChange={e => setEvtParking(e.target.value)} />
+            </div>
+            <div className="evt-field">
+              <label className="evt-label">Overnight / Line Policy</label>
+              <input className="evt-input" placeholder="e.g. No overnight lines" value={evtOvernight} onChange={e => setEvtOvernight(e.target.value)} />
+            </div>
+            <div className="evt-field">
+              <label className="evt-label">ID Requirements</label>
+              <input className="evt-input" placeholder="e.g. Valid ID required, 21+" value={evtIdReq} onChange={e => setEvtIdReq(e.target.value)} />
+            </div>
+            <div className="evt-field">
+              <label className="evt-label">Bottle Limit</label>
+              <input className="evt-input" placeholder="e.g. One per customer" value={evtLimit} onChange={e => setEvtLimit(e.target.value)} />
+            </div>
+            <div className="evt-field">
+              <label className="evt-label">Community Notes</label>
+              <input className="evt-input" placeholder="Any other details..." value={evtRulesNotes} onChange={e => setEvtRulesNotes(e.target.value)} />
+            </div>
+          </div>
+        </div>
+
+        <div className="event-form-footer">
+          <button className="btn-evt-cancel" onClick={() => setEventFormOpen(false)}>CANCEL</button>
+          <button
+            className="btn-evt-submit"
+            onClick={handlePostEvent}
+            disabled={!evtName.trim() || !evtStoreName.trim() || !evtCity.trim() || !evtDate || (evtBottles.length === 0 && !evtPendingBottle && !evtOtherBottle.trim())}
+          >
+            POST EVENT
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

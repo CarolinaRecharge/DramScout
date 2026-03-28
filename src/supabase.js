@@ -110,6 +110,31 @@ export async function toggleEventRsvp(eventId, fingerprint, isCurrentlyGoing) {
   }
 }
 
+// Post a new event
+export async function postEvent(payload) {
+  if (!supabase) return null
+  const { data, error } = await supabase
+    .from('events')
+    .insert(payload)
+    .select()
+    .single()
+  if (error) { console.warn('postEvent:', error.message); return null }
+  return data
+}
+
+// Delete an event the user owns
+export async function deleteEvent(eventId, userId) {
+  if (!supabase || !userId) return { ok: false, error: 'Not authenticated' }
+  const { error, count } = await supabase
+    .from('events')
+    .delete({ count: 'exact' })
+    .eq('id', eventId)
+    .eq('user_id', userId)
+  if (error) return { ok: false, error: error.message }
+  if (count === 0) return { ok: false, error: 'Permission denied or record not found' }
+  return { ok: true }
+}
+
 // Subscribe to new sightings in real-time
 export function subscribeToSightings(onInsert) {
   if (!supabase) return null
