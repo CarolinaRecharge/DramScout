@@ -2019,143 +2019,6 @@ body {
 }
 `
 
-// ─── MOCK DATA ─────────────────────────────────────────────────────────────
-const NOW = Date.now()
-
-function makeCreatedAt(hoursAgo) {
-  return NOW - hoursAgo * 60 * 60 * 1000
-}
-
-const INITIAL_SIGHTINGS = [
-  { id: '1', store: 'Sandy Forks ABC #01', city: 'Raleigh', state: 'NC', lat: 35.8691, lng: -78.6282, bottles: ["Blanton's Original", "Eagle Rare 10yr"], reporter: 'bourbonhunter_nc', hoursAgo: 0.03, confirmations: 4, notes: 'Both on the shelf, no limit signs posted', dist: '0.3' },
-  { id: '2', store: 'Village District ABC #08', city: 'Raleigh', state: 'NC', lat: 35.8050, lng: -78.6621, bottles: ["Weller Special Reserve"], reporter: 'tarheel_pour', hoursAgo: 2.5, confirmations: 7, notes: '3 bottles left when I was there', dist: '1.1' },
-  { id: '3', store: 'North Hills ABC #12', city: 'Raleigh', state: 'NC', lat: 35.8509, lng: -78.6438, bottles: ["E.H. Taylor Small Batch"], reporter: 'ncwhiskey_dad', hoursAgo: 5, confirmations: 2, notes: null, dist: '0.7' },
-  { id: '4', store: 'Cary Crossroads ABC', city: 'Cary', state: 'NC', lat: 35.7915, lng: -78.7811, bottles: ["Four Roses Limited Edition", "Blanton's Straight from the Barrel"], reporter: 'cary_sipper', hoursAgo: 11, confirmations: 9, notes: 'Manager said more coming Thursday', dist: '3.2' },
-  { id: '5', store: 'Morrisville Parkway ABC', city: 'Morrisville', state: 'NC', lat: 35.8326, lng: -78.8255, bottles: ["Weller 12yr", "Weller Full Proof"], reporter: 'triangle_hunter', hoursAgo: 18, confirmations: 12, notes: 'Limit 1 per customer on both', dist: '5.8' },
-  { id: '6', store: 'Apex ABC', city: 'Apex', state: 'NC', lat: 35.7321, lng: -78.8503, bottles: ["Eagle Rare 10yr"], reporter: 'apexbourbon', hoursAgo: 28, confirmations: 3, notes: null, dist: '8.4' },
-  { id: '7', store: 'Holly Springs ABC', city: 'Holly Springs', state: 'NC', lat: 35.6513, lng: -78.8340, bottles: ["Four Roses Single Barrel"], reporter: 'hs_pours', hoursAgo: 36, confirmations: 5, notes: null, dist: '12.1' },
-  { id: '8', store: 'Durham Central ABC', city: 'Durham', state: 'NC', lat: 35.9940, lng: -78.8986, bottles: ["Blanton's Original"], reporter: 'bullcity_wax', hoursAgo: 52, confirmations: 6, notes: 'Gone by noon, got there at 9am', dist: '14.6' },
-  { id: '9', store: 'Wake Forest ABC #3', city: 'Wake Forest', state: 'NC', lat: 35.9799, lng: -78.5096, bottles: ["Buffalo Trace", "E.H. Taylor Warehouse C"], reporter: 'wf_barrels', hoursAgo: 72, confirmations: 8, notes: null, dist: '18.3' },
-  { id: '10', store: 'Garner ABC #2', city: 'Garner', state: 'NC', lat: 35.7113, lng: -78.6141, bottles: ["Weller Special Reserve"], reporter: 'garner_gold', hoursAgo: 96, confirmations: 1, notes: null, dist: '6.7' },
-  { id: '11', store: 'Fuquay-Varina ABC', city: 'Fuquay-Varina', state: 'NC', lat: 35.5832, lng: -78.7997, bottles: ["Blanton's Gold Edition"], reporter: 'fv_find', hoursAgo: 130, confirmations: 4, notes: null, dist: '15.2' },
-  { id: '12', store: 'Clayton ABC', city: 'Clayton', state: 'NC', lat: 35.6493, lng: -78.4569, bottles: ["Four Roses Small Batch Select"], reporter: 'johnston_co_pours', hoursAgo: 160, confirmations: 2, notes: null, dist: '21.4' },
-].map(s => ({ ...s, createdAt: makeCreatedAt(s.hoursAgo) }))
-
-// ─── EVENTS DATA ──────────────────────────────────────────────────────────
-// Dates relative to a fixed reference so demo always looks realistic
-const BASE = new Date('2026-03-18T00:00:00')
-function eventDate(daysOffset, hour, min = 0) {
-  const d = new Date(BASE)
-  d.setDate(d.getDate() + daysOffset)
-  d.setHours(hour, min, 0, 0)
-  return d
-}
-
-const EVENTS = [
-  {
-    id: 'e1',
-    name: "Blanton's Allocation Drop",
-    store: 'Sandy Forks ABC #01',
-    city: 'Raleigh', state: 'NC',
-    date: eventDate(1, 9, 0),   // tomorrow 9 AM
-    bottles: ["Blanton's Original", "Blanton's Gold"],
-    expectedUnits: '~24 bottles total',
-    attendees: 31,
-    rules: {
-      parking: 'Street parking on Sandy Forks Rd. Store lot is first-come, do not block fire lane.',
-      overnight: 'No overnight. Line forms at 7:00 AM day-of. Wristbands distributed at 8:45 AM.',
-      limit: '1 bottle per customer. ABC policy enforced — no exceptions.',
-      id: 'Valid government-issued ID required. Must be 21+.',
-      notes: "Manager confirmed shipment arriving Tuesday evening. Drop expected to proceed as scheduled. No rainchecks if sold out.",
-    },
-  },
-  {
-    id: 'e2',
-    name: "Weller Wednesday Drop",
-    store: 'Village District ABC #08',
-    city: 'Raleigh', state: 'NC',
-    date: eventDate(0, 10, 0),  // today 10 AM
-    bottles: ["Weller Special Reserve", "Weller 12yr", "Weller Full Proof"],
-    expectedUnits: '~36 bottles across all three expressions',
-    attendees: 58,
-    rules: {
-      parking: 'Garage parking available at Village District — first 2 hrs free.',
-      overnight: 'No camping. Line begins at 8:30 AM. Staff will not acknowledge a line before that time.',
-      limit: '1 bottle per person per expression. Max 2 Weller labels per customer.',
-      id: 'Valid ID required. One ID = one person = one purchase slot.',
-      notes: "High demand expected. Lottery system may be used at manager discretion if line exceeds 40 people at open.",
-    },
-  },
-  {
-    id: 'e3',
-    name: "Eagle Rare Saturday Release",
-    store: 'North Hills ABC #12',
-    city: 'Raleigh', state: 'NC',
-    date: eventDate(3, 8, 30),
-    bottles: ["Eagle Rare 10yr"],
-    expectedUnits: '~18 bottles',
-    attendees: 22,
-    rules: {
-      parking: 'North Hills mall lot. Do not park in handicap spaces. Overflow on Lassiter Mill Rd.',
-      overnight: 'No overnight queuing permitted by mall security. Line begins at 7:00 AM.',
-      limit: '1 bottle per customer. Photo ID matched to purchase.',
-      id: 'Must present ID at time of purchase. Proxy buying not permitted.',
-      notes: "Community tip: The store opens the side entrance on weekends — line up at the right side door, not the main entrance.",
-    },
-  },
-  {
-    id: 'e4',
-    name: "Four Roses LE & SiB Release",
-    store: 'Cary Crossroads ABC',
-    city: 'Cary', state: 'NC',
-    date: eventDate(8, 9, 0),
-    bottles: ["Four Roses Limited Edition", "Four Roses Single Barrel"],
-    expectedUnits: '~12 LE + ~20 SiB',
-    attendees: 44,
-    rules: {
-      parking: 'Cary Crossroads shopping center lot. Ample parking, no issues typically.',
-      overnight: 'No overnight. Manager starts list at 8:00 AM — must be present to add name. List closes at 8:55 AM.',
-      limit: '1 LE per customer, 1 SiB per customer. Separate transactions required.',
-      id: 'Government-issued ID. Name on list must match ID exactly.',
-      notes: "This store uses a written name list rather than a physical line — highly recommended to arrive early to sign it. Releases tend to go smoothly here.",
-    },
-  },
-  {
-    id: 'e5',
-    name: "E.H. Taylor Barrel Proof Drop",
-    store: 'Morrisville Parkway ABC',
-    city: 'Morrisville', state: 'NC',
-    date: eventDate(14, 9, 0),
-    bottles: ["E.H. Taylor Barrel Proof", "E.H. Taylor Small Batch"],
-    expectedUnits: 'Unknown — single case confirmed',
-    attendees: 17,
-    rules: {
-      parking: 'Store strip mall lot. Shared with nail salon — be courteous.',
-      overnight: 'No overnight. Line at 7:30 AM. Manager will not open early.',
-      limit: '1 bottle total per customer across both expressions.',
-      id: 'ID required. Under no circumstances will staff hold bottles.',
-      notes: "Small allocation — likely 6-12 bottles combined. Expect a short but serious line. Store has been known to call the police if disputes arise.",
-    },
-  },
-  {
-    id: 'e6',
-    name: "Buffalo Trace Friday Restock",
-    store: 'Durham Central ABC',
-    city: 'Durham', state: 'NC',
-    date: eventDate(-2, 9, 0),  // 2 days ago — PAST
-    bottles: ["Buffalo Trace"],
-    expectedUnits: '~48 bottles',
-    attendees: 19,
-    rules: {
-      parking: 'Street parking on Foster St. Metered — bring quarters or use ParkMobile.',
-      overnight: 'N/A — this was a standard shelf restock, no formal event.',
-      limit: '2 bottles per customer.',
-      id: 'ID required at checkout.',
-      notes: "PAST EVENT — sold out by 9:45 AM. Line formed organically starting around 8:15 AM.",
-    },
-  },
-]
-
 function getEventStatus(date) {
   const now = new Date()
   const diffMs = date - now
@@ -2318,9 +2181,7 @@ export default function App() {
   const [dbSightings, setDbSightings] = useState(null)
   const [dbEvents, setDbEvents] = useState(null)
   const [dbReady, setDbReady] = useState(false)
-
-  // ── Local/mock fallback sightings ──────────────────────────────────────
-  const [sightings, setSightings] = useState(INITIAL_SIGHTINGS)
+  const [appLoading, setAppLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState('ALL')
   const [bottleSearch, setBottleSearch] = useState('')
   const [searchExpanded, setSearchExpanded] = useState(false)
@@ -2365,17 +2226,26 @@ export default function App() {
 
   // ── Supabase bootstrap ─────────────────────────────────────────────────
   useEffect(() => {
-    if (!supabase) return  // demo mode — use mock data
+    if (!supabase) {
+      // No Supabase configured — skip loading, show empty state
+      setDbSightings([])
+      setAppLoading(false)
+      return
+    }
 
     // Load stores, sightings, and events in parallel
     Promise.all([fetchStores(), fetchSightings(), fetchEvents()]).then(
       ([storeData, sightingData, eventData]) => {
-        if (storeData.length)  setStores(storeData)
-        if (sightingData)      setDbSightings(sightingData)
-        if (eventData)         setDbEvents(eventData)
+        if (storeData.length) setStores(storeData)
+        setDbSightings(sightingData || [])
+        if (eventData) setDbEvents(eventData)
         setDbReady(true)
+        setAppLoading(false)
       }
-    )
+    ).catch(() => {
+      setDbSightings([])
+      setAppLoading(false)
+    })
 
     // Real-time subscription — new sightings pushed from other users
     realtimeChannelRef.current = subscribeToSightings(newRow => {
@@ -2431,16 +2301,25 @@ export default function App() {
     }
   }, [stores, leafletLoadedRef.current])
 
-  // ── Inject styles + remove loading splash ─────────────────────────────
+  // ── Inject styles (splash hidden separately once data is ready) ───────
   useEffect(() => {
     const el = document.createElement('style')
     el.textContent = STYLES
     document.head.appendChild(el)
-    // Hide the static loading splash once React has mounted
-    const splash = document.getElementById('app-loading')
-    if (splash) splash.style.display = 'none'
     return () => el.remove()
   }, [])
+
+  // ── Hide HTML loading splash once app data is ready ────────────────────
+  useEffect(() => {
+    if (!appLoading) {
+      const splash = document.getElementById('app-loading')
+      if (splash) {
+        splash.style.transition = 'opacity 0.3s ease'
+        splash.style.opacity = '0'
+        setTimeout(() => { splash.style.display = 'none' }, 320)
+      }
+    }
+  }, [appLoading])
 
   // ── Load Leaflet ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -2467,7 +2346,7 @@ export default function App() {
       ).addTo(map)
       mapInstanceRef.current = map
       leafletLoadedRef.current = true
-      drawMarkers(INITIAL_SIGHTINGS, 'ALL', map, new Set())
+      // markers drawn by the sightings effect once DB data arrives
 
       // Use ResizeObserver so invalidateSize fires exactly when the container
       // gets its real CSS dimensions (fixed-layout, tab show/hide, window resize).
@@ -2645,7 +2524,7 @@ export default function App() {
   // ── Redraw markers when sightings, filter, or db state changes ─────────
   useEffect(() => {
     if (mapInstanceRef.current && leafletLoadedRef.current) {
-      const list = (dbSightings !== null ? dbSightings : sightings).map(s => ({
+      const list = (dbSightings || []).map(s => ({
         ...s,
         store: s.store || s.store_name,
         createdAt: s.createdAt ?? new Date(s.created_at ?? Date.now()).getTime(),
@@ -2654,7 +2533,7 @@ export default function App() {
       }))
       drawMarkers(list, activeFilter, mapInstanceRef.current, confirmed)
     }
-  }, [activeFilter, sightings, dbSightings, confirmed, drawMarkers])
+  }, [activeFilter, dbSightings, confirmed, drawMarkers])
 
   // ── Merge DB or mock sightings into a normalised shape ─────────────────
   const now = Date.now()
@@ -2673,21 +2552,20 @@ export default function App() {
     }
   }
 
-  const allSightings = (dbSightings !== null ? dbSightings : sightings).map(normaliseRow)
+  const allSightings = (dbSightings || []).map(normaliseRow)
 
   const filteredSightings = allSightings.filter(s => {
     if (s.hoursAgo > 336) return false
     return filterMatches(s, activeFilter, bottleSearch)
   })
 
-  // Events: prefer DB data, fall back to hard-coded EVENTS array
-  const activeEvents = dbEvents !== null ? dbEvents.map(e => ({
+  const activeEvents = (dbEvents || []).map(e => ({
     ...e,
     date: new Date(e.event_date),
     bottles: e.bottles || [],
     rules: e.rules || {},
     attendees: e.attendee_count || 0,
-  })) : EVENTS
+  }))
 
   // ── Near Me ────────────────────────────────────────────────────────────
   function handleNearMe() {
@@ -2751,9 +2629,7 @@ export default function App() {
     const updateCount = list => list.map(s =>
       s.id === id ? { ...s, confirmations: (s.confirmations || 0) + 1 } : s
     )
-    if (dbSightings) setDbSightings(prev => updateCount(prev || []))
-    else setSightings(prev => updateCount(prev))
-    // Persist to DB if available
+    setDbSightings(prev => updateCount(prev || []))
     if (supabase) await confirmSighting(id, getFingerprint())
   }
 
@@ -2856,11 +2732,10 @@ export default function App() {
         notes: localSighting.notes,
         user_id: session?.user?.id || null,
       })
-      // Add the DB row (with real UUID) or fall back to local object
       const row = saved ? { ...saved, store: saved.store_name, confirmations: 0 } : localSighting
       setDbSightings(prev => [row, ...(prev || [])])
     } else {
-      setSightings(prev => [localSighting, ...prev])
+      setDbSightings(prev => [localSighting, ...(prev || [])])
     }
 
     showToast()
@@ -3015,10 +2890,8 @@ export default function App() {
       {/* ── DB STATUS BAR ───────────────────────────────────────────── */}
       {activeTab === 'scout' && (
         <div className="db-status-bar">
-          <span className="db-status-dot" style={{ background: supabase ? (dbReady ? '#5DB85A' : '#C17D0E') : '#4F3B1A' }} />
-          {supabase
-            ? (dbReady ? `LIVE · ${filteredSightings.length} SIGHTINGS · ${stores.length} STORES MAPPED` : 'CONNECTING...')
-            : `DEMO MODE · ${filteredSightings.length} MOCK SIGHTINGS`}
+          <span className="db-status-dot" style={{ background: dbReady ? '#5DB85A' : '#C17D0E' }} />
+          {dbReady ? `LIVE · ${filteredSightings.length} SIGHTINGS · ${stores.length} STORES MAPPED` : 'CONNECTING...'}
         </div>
       )}
 
