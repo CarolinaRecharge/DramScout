@@ -1328,21 +1328,32 @@ body {
 
 /* ─── MOBILE SLIDE-UP BEHAVIOURS ─────────────────────────────────────────── */
 @media (max-width: 767px) {
-  /* Post-sighting sheet fills from tab-bar bottom to screen bottom */
+  /*
+   * Give map-section an explicit z-index so it becomes a BOUNDED stacking
+   * context. Leaflet's internal panes (z-index 200–700) are contained inside
+   * it and cannot paint over sibling elements that have a higher z-index.
+   */
+  .map-section {
+    z-index: 1;
+  }
+
+  /* Post-sighting sheet fills from tab-bar bottom to screen bottom.
+     Sheet z-index is already 310, well above the map (1) and tab-bar (95). */
   .sheet.open {
     height: calc(100dvh - 92px - env(safe-area-inset-top, 0px));
     max-height: calc(100dvh - 92px - env(safe-area-inset-top, 0px));
     border-radius: 0;
   }
 
-  /* Search/filter panel slides up to cover the map */
+  /* Search/filter panel slides up to cover the map (z-index 94: above map=1,
+     below tab-bar=95 so the tab bar stays accessible) */
   .left-panel.search-expanded {
     position: fixed;
     top: calc(92px + env(safe-area-inset-top, 0px));
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 90;
+    z-index: 94;
     overflow-y: auto;
     background: var(--page);
     animation: panel-slide-up 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards;
