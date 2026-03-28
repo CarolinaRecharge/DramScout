@@ -210,6 +210,7 @@ body {
   width: 100%;
   height: 50vh;
   margin-top: calc(92px + env(safe-area-inset-top, 0px));
+  pointer-events: none; /* only #map-container and explicit overlays receive events */
   background: repeating-linear-gradient(
     45deg,
     rgba(193,125,14,0.03) 0px,
@@ -271,6 +272,7 @@ body {
   bottom: 48px;
   left: 12px;
   z-index: 50;
+  pointer-events: auto;
   background: rgba(14,11,8,0.85);
   border: 1px solid var(--worn);
   border-radius: 20px;
@@ -303,6 +305,7 @@ body {
   bottom: 48px;
   right: 12px;
   z-index: 50;
+  pointer-events: none;
   background: rgba(14,11,8,0.88);
   border: 1px solid var(--rule);
   border-radius: 8px;
@@ -2273,6 +2276,8 @@ export default function App() {
         attributionControl: true,
         dragging: true,
         scrollWheelZoom: true,
+        tap: false,          // disable Leaflet's custom tap handler — it can swallow desktop pointer events
+        touchZoom: true,
       })
       L.tileLayer(
         'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
@@ -2302,13 +2307,7 @@ export default function App() {
       return
     }
 
-    // Inject Leaflet CSS
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-    document.head.appendChild(link)
-
-    // Inject Leaflet JS
+    // Leaflet CSS is already in index.html; just inject the JS
     const script = document.createElement('script')
     script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
     script.onload = () => initMap()
