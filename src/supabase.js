@@ -122,6 +122,42 @@ export async function postEvent(payload) {
   return data
 }
 
+// Fetch all queue entries for an event, ordered by join time
+export async function fetchEventQueue(eventId) {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('event_queue')
+    .select('id, event_id, user_id, handle, joined_at')
+    .eq('event_id', eventId)
+    .order('joined_at', { ascending: true })
+  if (error) { console.warn('fetchEventQueue:', error.message); return [] }
+  return data || []
+}
+
+// Join the virtual queue for an event
+export async function joinEventQueue(eventId, userId, handle, fingerprint) {
+  if (!supabase) return null
+  const { data, error } = await supabase
+    .from('event_queue')
+    .insert({ event_id: eventId, user_id: userId, handle, fingerprint })
+    .select()
+    .single()
+  if (error) { console.warn('joinEventQueue:', error.message); return null }
+  return data
+}
+
+// Leave the virtual queue for an event
+export async function leaveEventQueue(eventId, userId) {
+  if (!supabase || !userId) return false
+  const { error } = await supabase
+    .from('event_queue')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+  if (error) { console.warn('leaveEventQueue:', error.message); return false }
+  return true
+}
+
 // Delete an event the user owns
 export async function deleteEvent(eventId, userId) {
   if (!supabase || !userId) return { ok: false, error: 'Not authenticated' }

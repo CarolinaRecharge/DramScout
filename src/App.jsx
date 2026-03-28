@@ -4,6 +4,7 @@ import {
   fetchStores, fetchSightings, fetchEvents,
   postSighting, confirmSighting, toggleEventRsvp,
   postEvent, deleteEvent,
+  fetchEventQueue, joinEventQueue, leaveEventQueue,
   subscribeToSightings,
   signInWithGoogle, signOut, getSession, onAuthStateChange,
   fetchUserSightings, fetchUserFavorites, toggleStoreFavorite, deleteSighting,
@@ -905,6 +906,203 @@ body {
   color: var(--ghost);
   text-align: center;
   padding: 0 14px 12px;
+  letter-spacing: 0.04em;
+}
+
+/* ─── VIRTUAL QUEUE ──────────────────────────────────────────────────────── */
+.event-queue-section {
+  border-top: 1px solid var(--rule);
+  padding: 12px 14px 14px;
+}
+
+.event-queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.event-queue-title {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+
+.btn-queue-toggle {
+  background: none;
+  border: none;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+.btn-queue-toggle:hover { color: var(--parchment); }
+
+.event-queue-radius {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--ghost);
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+
+.event-queue-signin {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--ghost);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+
+.event-queue-countdown {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.queue-countdown-label {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ghost);
+}
+
+.queue-countdown-value {
+  font-family: 'Courier Prime', monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gold-light);
+  letter-spacing: 0.04em;
+}
+
+.btn-join-line {
+  width: 100%;
+  background: var(--gold);
+  border: none;
+  border-radius: 8px;
+  color: var(--ink);
+  font-family: 'Courier Prime', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 12px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  margin-bottom: 10px;
+}
+.btn-join-line:hover { opacity: 0.85; }
+
+.my-queue-position {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(193,125,14,0.12);
+  border: 1px solid rgba(193,125,14,0.4);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+.my-queue-position-label {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+}
+.my-queue-position-num {
+  font-family: 'Courier Prime', monospace;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gold-light);
+}
+
+.btn-leave-line {
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-leave-line:hover { border-color: var(--urgent); color: var(--urgent); }
+
+.event-queue-closed {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ghost);
+  text-align: center;
+  padding: 8px 0;
+  margin-bottom: 4px;
+}
+
+.queue-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.queue-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+}
+.queue-entry.mine {
+  background: rgba(193,125,14,0.08);
+  border-color: rgba(193,125,14,0.3);
+}
+
+.queue-pos {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ghost);
+  min-width: 28px;
+}
+.queue-entry.mine .queue-pos { color: var(--gold); }
+
+.queue-handle {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  color: var(--parchment);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.queue-entry.mine .queue-handle::after {
+  content: ' (you)';
+  color: var(--gold);
+  font-size: 10px;
+}
+
+.evt-hint {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  color: var(--ghost);
+  margin-top: 4px;
   letter-spacing: 0.04em;
 }
 
@@ -2320,6 +2518,17 @@ function formatEventDate(date) {
   return `${dateStr} · ${timeStr}`
 }
 
+function formatQueueCountdown(targetMs, nowMs) {
+  const diff = targetMs - nowMs
+  if (diff <= 0) return null
+  const days  = Math.floor(diff / 86400000)
+  const hours = Math.floor((diff % 86400000) / 3600000)
+  const mins  = Math.floor((diff % 3600000)  / 60000)
+  const hh = String(hours).padStart(2, '0')
+  const mm = String(mins).padStart(2, '0')
+  return days > 0 ? `${days}d ${hh}:${mm}` : `${hh}:${mm}`
+}
+
 function getCountdown(date) {
   const now = new Date()
   const diffMs = date - now
@@ -2510,7 +2719,13 @@ export default function App() {
   const [evtIdReq, setEvtIdReq] = useState('')
   const [evtLimit, setEvtLimit] = useState('')
   const [evtRulesNotes, setEvtRulesNotes] = useState('')
+  const [evtQueueOpenAt, setEvtQueueOpenAt] = useState('')
+  const [evtQueueRadius, setEvtQueueRadius] = useState('')
   const [deleteEventConfirm, setDeleteEventConfirm] = useState(null) // event id pending delete
+  // Queue state
+  const [eventQueues, setEventQueues] = useState({})   // eventId → entry[]
+  const [openQueues, setOpenQueues] = useState(new Set()) // expanded queue list by eventId
+  const [queueNow, setQueueNow] = useState(() => new Date())
   // Store picker
   const [storeSearch, setStoreSearch] = useState('')
   const [selectedStore, setSelectedStore] = useState(null)
@@ -2839,6 +3054,24 @@ export default function App() {
     }
   }, [activeFilter, dbSightings, confirmed, drawMarkers])
 
+  // ── Tick queueNow every second while on the events tab ────────────────
+  useEffect(() => {
+    if (activeTab !== 'events') return
+    const id = setInterval(() => setQueueNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [activeTab])
+
+  // ── Load queues for all drop events when the events tab opens ──────────
+  useEffect(() => {
+    if (activeTab !== 'events') return
+    const drops = (dbEvents || []).filter(e => (e.event_type || 'drop') === 'drop')
+    drops.forEach(e => {
+      fetchEventQueue(e.id).then(entries => {
+        setEventQueues(prev => ({ ...prev, [e.id]: entries }))
+      })
+    })
+  }, [activeTab, dbEvents])
+
   // ── Merge DB or mock sightings into a normalised shape ─────────────────
   const now = Date.now()
 
@@ -2870,6 +3103,8 @@ export default function App() {
     rules: e.rules || {},
     attendees: e.attendee_count || 0,
     type: e.event_type || 'drop',
+    queueOpenAt: e.queue_open_at ? new Date(e.queue_open_at) : null,
+    queueRadiusMiles: e.queue_radius_miles || null,
   }))
 
   const filteredActiveEvents = evtTypeFilter === 'all'
@@ -2961,6 +3196,8 @@ export default function App() {
       },
       user_id: session?.user?.id || null,
       attendee_count: 0,
+      queue_open_at: evtQueueOpenAt ? new Date(evtQueueOpenAt).toISOString() : null,
+      queue_radius_miles: evtQueueRadius ? parseInt(evtQueueRadius) : null,
     }
 
     // Optimistic add
@@ -2974,6 +3211,7 @@ export default function App() {
     setEvtName(''); setEvtStoreName(''); setEvtCity(''); setEvtDate('')
     setEvtBottles([]); setEvtPendingBrand(''); setEvtPendingBottle(''); setEvtOtherBottle('')
     setEvtParking(''); setEvtOvernight(''); setEvtIdReq(''); setEvtLimit(''); setEvtRulesNotes('')
+    setEvtQueueOpenAt(''); setEvtQueueRadius('')
 
     if (supabase) {
       const saved = await postEvent(payload)
@@ -2996,6 +3234,62 @@ export default function App() {
       if (!ok) { alert(`Could not delete event: ${error}`); return }
     }
     setDbEvents(prev => (prev || []).filter(e => e.id !== id))
+  }
+
+  // ── Join virtual queue ─────────────────────────────────────────────────
+  async function handleJoinQueue(eventId) {
+    if (!session?.user?.id) return
+    const fp = getFingerprint()
+    const handle =
+      session.user.user_metadata?.full_name ||
+      session.user.user_metadata?.name ||
+      session.user.email?.split('@')[0] ||
+      ('scout_' + fp.slice(-4))
+
+    // Optimistic add
+    const tempEntry = {
+      id: `temp-q-${Date.now()}`,
+      event_id: eventId,
+      user_id: session.user.id,
+      handle,
+      joined_at: new Date().toISOString(),
+    }
+    setEventQueues(prev => ({
+      ...prev,
+      [eventId]: [...(prev[eventId] || []), tempEntry],
+    }))
+    // Auto-expand queue list so user sees their position
+    setOpenQueues(prev => { const n = new Set(prev); n.add(eventId); return n })
+
+    if (supabase) {
+      const saved = await joinEventQueue(eventId, session.user.id, handle, fp)
+      if (saved) {
+        const entries = await fetchEventQueue(eventId)
+        setEventQueues(prev => ({ ...prev, [eventId]: entries }))
+      } else {
+        setEventQueues(prev => ({
+          ...prev,
+          [eventId]: (prev[eventId] || []).filter(e => e.id !== tempEntry.id),
+        }))
+        alert('Could not join the line. You may already be in it.')
+      }
+    }
+  }
+
+  // ── Leave virtual queue ────────────────────────────────────────────────
+  async function handleLeaveQueue(eventId) {
+    if (!session?.user?.id) return
+    setEventQueues(prev => ({
+      ...prev,
+      [eventId]: (prev[eventId] || []).filter(e => e.user_id !== session.user.id),
+    }))
+    if (supabase) {
+      const ok = await leaveEventQueue(eventId, session.user.id)
+      if (!ok) {
+        const entries = await fetchEventQueue(eventId)
+        setEventQueues(prev => ({ ...prev, [eventId]: entries }))
+      }
+    }
   }
 
   async function handleToggleFavorite(storeId) {
@@ -3521,6 +3815,99 @@ export default function App() {
                   ) : null}
                 </div>
 
+                {/* ── VIRTUAL QUEUE (drop events only) ── */}
+                {event.type === 'drop' && (() => {
+                  const queueCloseTime = event.date.getTime() + 30 * 60 * 1000
+                  const queueOpenTime  = event.queueOpenAt ? event.queueOpenAt.getTime() : null
+                  const nowMs          = queueNow.getTime()
+                  const lineIsOpen     = (queueOpenTime === null || nowMs >= queueOpenTime) && nowMs < queueCloseTime
+                  const lineNotYet     = queueOpenTime !== null && nowMs < queueOpenTime
+                  const lineClosed     = nowMs >= queueCloseTime
+                  const entries        = eventQueues[event.id] || []
+                  const myEntry        = entries.find(e => e.user_id === session?.user?.id)
+                  const myPos          = myEntry ? entries.indexOf(myEntry) + 1 : null
+                  const queueExpanded  = openQueues.has(event.id)
+
+                  return (
+                    <div className="event-queue-section">
+                      <div className="event-queue-header">
+                        <span className="event-queue-title">
+                          VIRTUAL LINE{entries.length > 0 ? ` · ${entries.length} IN LINE` : ''}
+                        </span>
+                        {entries.length > 0 && (
+                          <button
+                            className="btn-queue-toggle"
+                            onClick={() => setOpenQueues(prev => {
+                              const n = new Set(prev)
+                              n.has(event.id) ? n.delete(event.id) : n.add(event.id)
+                              return n
+                            })}
+                          >
+                            {queueExpanded ? 'HIDE LINE' : 'VIEW LINE'}
+                          </button>
+                        )}
+                      </div>
+
+                      {event.queueRadiusMiles && (
+                        <div className="event-queue-radius">
+                          📍 Must be within {event.queueRadiusMiles} miles of {event.city}
+                        </div>
+                      )}
+
+                      {!session && (
+                        <div className="event-queue-signin">Sign in to join the virtual line</div>
+                      )}
+
+                      {session && lineNotYet && (
+                        <div className="event-queue-countdown">
+                          <span className="queue-countdown-label">LINE OPENS IN</span>
+                          <span className="queue-countdown-value">
+                            {formatQueueCountdown(queueOpenTime, nowMs)}
+                          </span>
+                        </div>
+                      )}
+
+                      {session && lineIsOpen && !myEntry && (
+                        <button className="btn-join-line" onClick={() => handleJoinQueue(event.id)}>
+                          🎯 JOIN LINE
+                        </button>
+                      )}
+
+                      {session && myEntry && (
+                        <div className="my-queue-position">
+                          <span className="my-queue-position-label">YOUR POSITION</span>
+                          <span className="my-queue-position-num">#{myPos}</span>
+                          {lineIsOpen && (
+                            <button className="btn-leave-line" onClick={() => handleLeaveQueue(event.id)}>
+                              LEAVE
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {lineClosed && (
+                        <div className="event-queue-closed">
+                          🔒 LINE CLOSED
+                        </div>
+                      )}
+
+                      {queueExpanded && entries.length > 0 && (
+                        <div className="queue-list">
+                          {entries.map((entry, idx) => (
+                            <div
+                              key={entry.id}
+                              className={`queue-entry${entry.user_id === session?.user?.id ? ' mine' : ''}`}
+                            >
+                              <span className="queue-pos">#{idx + 1}</span>
+                              <span className="queue-handle">{entry.handle}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+
                 <div className="event-card-footer">
                   <button
                     className={`btn-rsvp${isGoing ? ' going' : ''}`}
@@ -3929,6 +4316,36 @@ export default function App() {
               <input className="evt-input" type="datetime-local" value={evtDate} onChange={e => setEvtDate(e.target.value)} style={{ colorScheme: 'dark' }} />
             </div>
           </div>
+
+          {/* Virtual Line Settings — drops only */}
+          {evtType === 'drop' && (
+            <div className="event-form-section">
+              <div className="event-form-section-title">Virtual Line Settings</div>
+              <div className="evt-field">
+                <label className="evt-label">Line Opens At (optional)</label>
+                <input
+                  className="evt-input"
+                  type="datetime-local"
+                  value={evtQueueOpenAt}
+                  onChange={e => setEvtQueueOpenAt(e.target.value)}
+                  style={{ colorScheme: 'dark' }}
+                />
+                <div className="evt-hint">Leave blank — line opens when the event is posted</div>
+              </div>
+              <div className="evt-field">
+                <label className="evt-label">Check-in Radius</label>
+                <select className="evt-select" value={evtQueueRadius} onChange={e => setEvtQueueRadius(e.target.value)}>
+                  <option value="">Nationwide (no restriction)</option>
+                  <option value="10">Within 10 miles</option>
+                  <option value="25">Within 25 miles</option>
+                  <option value="50">Within 50 miles</option>
+                  <option value="100">Within 100 miles</option>
+                  <option value="200">Within 200 miles</option>
+                </select>
+                <div className="evt-hint">Displayed as a requirement — honor-system enforced</div>
+              </div>
+            </div>
+          )}
 
           {/* Bottles */}
           <div className="event-form-section">
