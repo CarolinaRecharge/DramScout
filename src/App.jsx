@@ -3015,7 +3015,7 @@ export default function App() {
         <section className="events-section">
           <div className="events-header">
             <span className="feed-header-label">UPCOMING DROPS</span>
-            <span className="feed-header-meta">{EVENTS.filter(e => getEventStatus(e.date) !== 'past').length} SCHEDULED</span>
+            <span className="feed-header-meta">{activeEvents.filter(e => getEventStatus(e.date) !== 'past').length} SCHEDULED</span>
             <div className="feed-header-rule" />
           </div>
 
