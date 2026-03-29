@@ -273,3 +273,80 @@ export function onAuthStateChange(callback) {
   const { data: { subscription } } = supabase.auth.onAuthStateChange(callback)
   return () => subscription.unsubscribe()
 }
+
+// ── User roles ────────────────────────────────────────────────────────────────
+
+// Fetch a user's role from the user_roles table (null = drinker/default)
+export async function fetchUserRole(userId) {
+  if (!supabase || !userId) return null
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .single()
+  if (error) return null
+  return data?.role || null
+}
+
+// Upsert a role — used to seed the admin and by admin management panel
+export async function upsertUserRole(userId, role) {
+  if (!supabase || !userId) return false
+  const { error } = await supabase
+    .from('user_roles')
+    .upsert({ user_id: userId, role }, { onConflict: 'user_id' })
+  if (error) { console.warn('upsertUserRole:', error.message); return false }
+  return true
+}
+
+// Upsert profile row so admins can search users by email
+export async function upsertProfile(userId, email, displayName) {
+  if (!supabase || !userId) return
+  await supabase
+    .from('profiles')
+    .upsert({ user_id: userId, email, display_name: displayName }, { onConflict: 'user_id' })
+}
+
+// Search profiles by email (admin use)
+export async function searchProfiles(query) {
+  if (!supabase || !query.trim()) return []
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('user_id, email, display_name')
+    .ilike('email', `%${query.trim()}%`)
+    .limit(8)
+  if (error) return []
+  return data || []
+}
+
+// Fetch role for a specific user_id (admin panel lookup)
+export async function fetchRoleForUser(userId) {
+  if (!supabase || !userId) return 'drinker'
+  const { data } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .single()
+  return data?.role || 'drinker'
+}
+
+// Admin: delete any sighting (requires RLS policy allowing admin role)
+export async function deleteSightingAdmin(sightingId) {
+  if (!supabase) return { ok: false, error: 'No connection' }
+  const { error } = await supabase
+    .from('sightings')
+    .delete()
+    .eq('id', sightingId)
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
+
+// Admin: delete any event (requires RLS policy allowing admin role)
+export async function deleteEventAdmin(eventId) {
+  if (!supabase) return { ok: false, error: 'No connection' }
+  const { error } = await supabase
+    .from('events')
+    .delete()
+    .eq('id', eventId)
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}

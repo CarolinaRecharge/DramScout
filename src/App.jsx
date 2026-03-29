@@ -8,7 +8,18 @@ import {
   subscribeToSightings,
   signInWithGoogle, signOut, getSession, onAuthStateChange,
   fetchUserSightings, fetchUserFavorites, toggleStoreFavorite, deleteSighting,
+  fetchUserRole, upsertUserRole, upsertProfile, searchProfiles, fetchRoleForUser,
+  deleteSightingAdmin, deleteEventAdmin,
 } from './supabase'
+
+const ADMIN_EMAIL = 'danielk.black95@gmail.com'
+const ROLE_ORDER = { admin: 4, store: 3, collector: 2, drinker: 1 }
+const ROLE_LABELS = {
+  admin:     { label: 'ADMIN',     color: '#C17D0E', bg: 'rgba(193,125,14,0.12)',  desc: 'Full access — can manage all content and users' },
+  store:     { label: 'STORE',     color: '#4A9ECA', bg: 'rgba(74,158,202,0.12)',  desc: 'Can create Drops, Meet-ups, and Tastings' },
+  collector: { label: 'COLLECTOR', color: '#9E5EA8', bg: 'rgba(158,94,168,0.12)',  desc: 'Can create Meet-ups and Tastings' },
+  drinker:   { label: 'DRINKER',   color: 'var(--ghost)', bg: 'rgba(255,255,255,0.05)', desc: 'Can post sightings and confirm others' },
+}
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
 const STYLES = `
@@ -2193,6 +2204,104 @@ body {
 
 .profile-signout-btn:hover { border-color: var(--urgent); color: var(--urgent); }
 
+/* ── Role badge ── */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid;
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  margin-top: 4px;
+}
+
+/* ── Admin panel ── */
+.admin-panel {
+  margin: 0 12px 12px;
+  background: rgba(193,125,14,0.06);
+  border: 1px solid rgba(193,125,14,0.3);
+  border-radius: 10px;
+  padding: 14px;
+}
+.admin-panel-title {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+.admin-search-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.admin-search-input {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--parchment);
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  padding: 8px 10px;
+  outline: none;
+}
+.admin-search-input:focus { border-color: var(--gold); }
+.btn-admin-search {
+  background: rgba(193,125,14,0.12);
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  color: var(--gold);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 8px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-admin-search:hover { background: rgba(193,125,14,0.22); }
+.admin-user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.admin-user-row:last-child { border-bottom: none; }
+.admin-user-info { flex: 1; min-width: 0; }
+.admin-user-email {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--parchment);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-user-name {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--ghost);
+}
+.admin-role-select {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--parchment);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  padding: 5px 8px;
+  cursor: pointer;
+  outline: none;
+}
+.admin-role-select:focus { border-color: var(--gold); }
+
 .profile-section-header {
   padding: 16px 16px 10px;
   font-family: 'Courier Prime', monospace;
@@ -2706,6 +2815,9 @@ export default function App() {
   const [otherBottle, setOtherBottle] = useState('')
   const [reporterHandle, setReporterHandle] = useState('')
   const [session, setSession] = useState(null)
+  const [userRole, setUserRole] = useState('drinker')
+  const [adminSearch, setAdminSearch] = useState('')
+  const [adminSearchResults, setAdminSearchResults] = useState([])
   const [favorites, setFavorites] = useState(new Set())
   const [userSightings, setUserSightings] = useState([])
   const [deleteConfirm, setDeleteConfirm] = useState(null) // sighting id pending delete
@@ -2794,8 +2906,22 @@ export default function App() {
   // ── Auth session ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!supabase) return
-    getSession().then(setSession)
-    return onAuthStateChange((_event, sess) => setSession(sess))
+    async function initSession(sess) {
+      setSession(sess)
+      if (!sess?.user) { setUserRole('drinker'); return }
+      // Persist profile row so admin can look up users by email
+      upsertProfile(sess.user.id, sess.user.email, sess.user.user_metadata?.full_name || null)
+      // Seed admin role on first login for the designated admin email
+      if (sess.user.email === ADMIN_EMAIL) {
+        await upsertUserRole(sess.user.id, 'admin')
+        setUserRole('admin')
+        return
+      }
+      const role = await fetchUserRole(sess.user.id)
+      setUserRole(role || 'drinker')
+    }
+    getSession().then(initSession)
+    return onAuthStateChange((_event, sess) => initSession(sess))
   }, [])
 
   // ── Pre-fill reporter handle from Google profile ───────────────────────
@@ -3126,6 +3252,13 @@ export default function App() {
     ? activeEvents
     : activeEvents.filter(e => e.type === evtTypeFilter)
 
+  // ── Role-based permissions ─────────────────────────────────────────────
+  const effectiveRole  = session?.user?.email === ADMIN_EMAIL ? 'admin' : userRole
+  const isAdmin        = effectiveRole === 'admin'
+  const canPostEvent   = ['admin', 'store', 'collector'].includes(effectiveRole)
+  const canCreateDrop  = ['admin', 'store'].includes(effectiveRole)
+  const canDeleteAny   = isAdmin
+
   // ── Near Me ────────────────────────────────────────────────────────────
   function handleNearMe() {
     if (!navigator.geolocation || !mapInstanceRef.current) return
@@ -3161,12 +3294,14 @@ export default function App() {
   async function handleDeleteSighting(id) {
     if (!session?.user?.id) return
     setDeleteConfirm(null)
-    const { ok, error } = await deleteSighting(id, session.user.id)
-    if (ok) {
+    const result = canDeleteAny
+      ? await deleteSightingAdmin(id)
+      : await deleteSighting(id, session.user.id)
+    if (result.ok) {
       setUserSightings(prev => prev.filter(s => s.id !== id))
       setDbSightings(prev => prev ? prev.filter(s => s.id !== id) : prev)
     } else {
-      alert(`Could not delete sighting: ${error}`)
+      alert(`Could not delete sighting: ${result.error}`)
     }
   }
 
@@ -3248,8 +3383,10 @@ export default function App() {
     if (!session?.user?.id) return
     setDeleteEventConfirm(null)
     if (supabase) {
-      const { ok, error } = await deleteEvent(id, session.user.id)
-      if (!ok) { alert(`Could not delete event: ${error}`); return }
+      const result = canDeleteAny
+        ? await deleteEventAdmin(id)
+        : await deleteEvent(id, session.user.id)
+      if (!result.ok) { alert(`Could not delete event: ${result.error}`); return }
     }
     setDbEvents(prev => (prev || []).filter(e => e.id !== id))
   }
@@ -3716,6 +3853,12 @@ export default function App() {
                     {favorites.has(s.storeId) ? '★' : '☆'}
                   </button>
                 )}
+                {canDeleteAny && (
+                  <button className="btn-delete-sighting" onClick={() => setDeleteConfirm(s.id)}
+                    style={{ fontSize: 9, padding: '4px 8px' }}
+                    title="Admin: delete sighting"
+                  >✕</button>
+                )}
               </div>
             </div>
           )
@@ -3744,7 +3887,7 @@ export default function App() {
             </span>
             <span className="feed-header-meta" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {filteredActiveEvents.filter(e => getEventStatus(e.date) !== 'past').length} SCHEDULED
-              {session && (
+              {session && canPostEvent && (
                 <button className="btn-post-event" onClick={() => setEventFormOpen(true)}>
                   + POST EVENT
                 </button>
@@ -3970,7 +4113,7 @@ export default function App() {
                   >
                     {isGoing ? "✓ I'M GOING" : status === 'past' ? 'PAST EVENT' : "I'LL BE THERE"}
                   </button>
-                  {session?.user?.id && event.user_id === session.user.id ? (
+                  {session?.user?.id && (canDeleteAny || event.user_id === session.user.id) ? (
                     <button className="btn-delete-event" onClick={() => setDeleteEventConfirm(event.id)}>
                       DELETE
                     </button>
@@ -4006,9 +4149,72 @@ export default function App() {
                 <div className="profile-user-info">
                   <div className="profile-name">{session.user.user_metadata?.full_name || 'Scout'}</div>
                   <div className="profile-email">{session.user.email}</div>
+                  <span
+                    className="role-badge"
+                    style={{ color: ROLE_LABELS[effectiveRole].color, borderColor: ROLE_LABELS[effectiveRole].color, background: ROLE_LABELS[effectiveRole].bg }}
+                  >
+                    {ROLE_LABELS[effectiveRole].label}
+                  </span>
+                  <div style={{ fontFamily: "'Courier Prime', monospace", fontSize: 9, color: 'var(--ghost)', marginTop: 3, letterSpacing: '0.04em' }}>
+                    {ROLE_LABELS[effectiveRole].desc}
+                  </div>
                 </div>
                 <button className="profile-signout-btn" onClick={() => signOut()}>SIGN OUT</button>
               </div>
+
+              {/* ── Admin Panel ────────────────────────────────────── */}
+              {isAdmin && (
+                <div className="admin-panel">
+                  <div className="admin-panel-title">⚙ Admin — Manage User Roles</div>
+                  <div className="admin-search-row">
+                    <input
+                      className="admin-search-input"
+                      placeholder="Search by email..."
+                      value={adminSearch}
+                      onChange={e => setAdminSearch(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && searchProfiles(adminSearch).then(setAdminSearchResults)}
+                    />
+                    <button
+                      className="btn-admin-search"
+                      onClick={() => searchProfiles(adminSearch).then(setAdminSearchResults)}
+                    >SEARCH</button>
+                  </div>
+                  {adminSearchResults.map(u => (
+                    <div key={u.user_id} className="admin-user-row">
+                      <div className="admin-user-info">
+                        <div className="admin-user-email">{u.email}</div>
+                        {u.display_name && <div className="admin-user-name">{u.display_name}</div>}
+                      </div>
+                      <select
+                        className="admin-role-select"
+                        defaultValue=""
+                        onChange={async e => {
+                          const newRole = e.target.value
+                          if (!newRole) return
+                          const ok = await upsertUserRole(u.user_id, newRole)
+                          if (ok) {
+                            e.target.value = ''
+                            alert(`Role updated to ${newRole} for ${u.email}`)
+                          } else {
+                            alert('Failed to update role')
+                          }
+                        }}
+                      >
+                        <option value="" disabled>Set role…</option>
+                        <option value="drinker">Drinker</option>
+                        <option value="collector">Collector</option>
+                        <option value="store">Store</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                  ))}
+                  {adminSearchResults.length === 0 && adminSearch && (
+                    <div style={{ fontFamily: "'Courier Prime', monospace", fontSize: 10, color: 'var(--ghost)' }}>
+                      No users found — they must have signed in at least once
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* My Sightings */}
               <div className="profile-section-header">
@@ -4332,14 +4538,17 @@ export default function App() {
             <div className="event-form-section-title">Event Type</div>
             <div className="evt-type-row">
               {[
-                { key: 'drop',    label: '🥃 DROP' },
-                { key: 'meetup',  label: '🤝 MEET-UP' },
-                { key: 'tasting', label: '🍷 TASTING' },
-              ].map(({ key, label }) => (
+                { key: 'drop',    label: '🥃 DROP',    allowed: canCreateDrop },
+                { key: 'meetup',  label: '🤝 MEET-UP',  allowed: true },
+                { key: 'tasting', label: '🍷 TASTING',  allowed: true },
+              ].map(({ key, label, allowed }) => (
                 <button
                   key={key}
                   className={`evt-type-btn${evtType === key ? ` sel-${key}` : ''}`}
-                  onClick={() => setEvtType(key)}
+                  onClick={() => allowed && setEvtType(key)}
+                  disabled={!allowed}
+                  style={!allowed ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
+                  title={!allowed ? 'Store or Admin role required to post Drops' : undefined}
                 >{label}</button>
               ))}
             </div>
