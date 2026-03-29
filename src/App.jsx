@@ -2913,7 +2913,7 @@ export default function App() {
       upsertProfile(sess.user.id, sess.user.email, sess.user.user_metadata?.full_name || null)
       // Seed admin role on first login for the designated admin email
       if (sess.user.email === ADMIN_EMAIL) {
-        await upsertUserRole(sess.user.id, 'admin')
+        upsertUserRole(sess.user.id, 'admin') // fire-and-forget — role is known from email check
         setUserRole('admin')
         return
       }
