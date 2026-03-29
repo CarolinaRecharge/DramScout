@@ -110,6 +110,19 @@ export async function toggleEventRsvp(eventId, fingerprint, isCurrentlyGoing) {
   }
 }
 
+// Update an existing event (admin or owner)
+export async function updateEvent(eventId, payload) {
+  if (!supabase) return null
+  const { data, error } = await supabase
+    .from('events')
+    .update(payload)
+    .eq('id', eventId)
+    .select()
+    .single()
+  if (error) { console.warn('updateEvent:', error.message); return null }
+  return data
+}
+
 // Post a new event
 export async function postEvent(payload) {
   if (!supabase) return null

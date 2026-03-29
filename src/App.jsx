@@ -3,7 +3,7 @@ import {
   supabase, getFingerprint,
   fetchStores, fetchSightings, fetchEvents,
   postSighting, confirmSighting, toggleEventRsvp,
-  postEvent, deleteEvent,
+  postEvent, updateEvent, deleteEvent,
   fetchEventQueue, joinEventQueue, leaveEventQueue,
   subscribeToSightings,
   signInWithGoogle, signOut, getSession, onAuthStateChange,
@@ -1356,6 +1356,20 @@ body {
   transition: background 0.15s;
 }
 .btn-delete-event:hover { background: rgba(156,28,28,0.1); }
+.btn-edit-event {
+  background: none;
+  border: 1px solid #C17D0E;
+  border-radius: 6px;
+  color: #C17D0E;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-edit-event:hover { background: rgba(193,125,14,0.12); }
 
 /* ─── FAB ─────────────────────────────────────────────────────────────────── */
 .fab {
@@ -2847,6 +2861,7 @@ export default function App() {
   const [evtQueueOpenAt, setEvtQueueOpenAt] = useState('')
   const [evtQueueRadius, setEvtQueueRadius] = useState('')
   const [deleteEventConfirm, setDeleteEventConfirm] = useState(null) // event id pending delete
+  const [editingEventId, setEditingEventId] = useState(null) // non-null = editing mode
   // Queue state
   const [eventQueues, setEventQueues] = useState({})   // eventId → entry[]
   const [openQueues, setOpenQueues] = useState(new Set()) // expanded queue list by eventId
@@ -3389,6 +3404,91 @@ export default function App() {
       if (!result.ok) { alert(`Could not delete event: ${result.error}`); return }
     }
     setDbEvents(prev => (prev || []).filter(e => e.id !== id))
+  }
+
+  // ── Open edit form pre-filled with existing event data ────────────────
+  function handleOpenEditEvent(event) {
+    setEditingEventId(event.id)
+    setEvtType(event.event_type || 'drop')
+    setEvtName(event.name || '')
+    setEvtStoreName(event.store || '')
+    setEvtStoreSearch(event.store || '')
+    setEvtCity(event.city || '')
+    // Convert ISO date to datetime-local format (YYYY-MM-DDTHH:MM)
+    const d = event.event_date ? new Date(event.event_date) : null
+    setEvtDate(d ? d.toISOString().slice(0, 16) : '')
+    setEvtBottles(event.bottles || [])
+    setEvtPendingBrand(''); setEvtPendingBottle(''); setEvtOtherBottle('')
+    setEvtParking(event.rules?.parking || '')
+    setEvtOvernight(event.rules?.overnight || '')
+    setEvtIdReq(event.rules?.id || '')
+    setEvtLimit(event.rules?.limit || '')
+    setEvtRulesNotes(event.rules?.notes || '')
+    const qoAt = event.queue_open_at ? new Date(event.queue_open_at).toISOString().slice(0, 16) : ''
+    setEvtQueueOpenAt(qoAt)
+    setEvtQueueRadius(event.queue_radius_miles != null ? String(event.queue_radius_miles) : '')
+    setEvtSelectedStore(null)
+    setEvtStoreLat(event.store_lat || null)
+    setEvtStoreLng(event.store_lng || null)
+    setEvtShowStorePicker(false)
+    setEventFormOpen(true)
+  }
+
+  // ── Save edits to an existing event ────────────────────────────────────
+  async function handleUpdateEvent() {
+    let bottleList = [...evtBottles]
+    if (bottleList.length === 0 && evtPendingBottle && evtPendingBottle !== '__other__') {
+      bottleList = [evtPendingBottle]
+    } else if (bottleList.length === 0 && evtOtherBottle.trim()) {
+      bottleList = [evtOtherBottle.trim()]
+    }
+    if (!evtName.trim() || !evtStoreName.trim() || !evtCity.trim() || !evtDate) return
+
+    const payload = {
+      name: evtName.trim(),
+      store: evtStoreName.trim(),
+      city: evtCity.trim(),
+      state: 'NC',
+      event_date: new Date(evtDate).toISOString(),
+      event_type: evtType,
+      bottles: bottleList,
+      rules: {
+        parking: evtParking.trim() || 'Not specified',
+        overnight: evtOvernight.trim() || 'Not specified',
+        id: evtIdReq.trim() || 'Valid ID required',
+        limit: evtLimit.trim() || 'Not specified',
+        notes: evtRulesNotes.trim() || '',
+      },
+      queue_open_at: evtQueueOpenAt ? new Date(evtQueueOpenAt).toISOString() : null,
+      queue_radius_miles: evtQueueRadius ? parseFloat(evtQueueRadius) : null,
+      store_lat: evtStoreLat,
+      store_lng: evtStoreLng,
+    }
+
+    const id = editingEventId
+    // Optimistic update
+    setDbEvents(prev => (prev || []).map(e => e.id === id ? { ...e, ...payload } : e))
+
+    // Close & reset form
+    setEventFormOpen(false)
+    setEditingEventId(null)
+    setEvtType('drop')
+    setEvtName(''); setEvtStoreName(''); setEvtCity(''); setEvtDate('')
+    setEvtBottles([]); setEvtPendingBrand(''); setEvtPendingBottle(''); setEvtOtherBottle('')
+    setEvtParking(''); setEvtOvernight(''); setEvtIdReq(''); setEvtLimit(''); setEvtRulesNotes('')
+    setEvtQueueOpenAt(''); setEvtQueueRadius('')
+    setEvtStoreSearch(''); setEvtSelectedStore(null); setEvtStoreLat(null); setEvtStoreLng(null)
+
+    if (supabase) {
+      const saved = await updateEvent(id, payload)
+      if (saved) {
+        setDbEvents(prev => (prev || []).map(e => e.id === id ? saved : e))
+      } else {
+        // Revert on failure by re-fetching
+        fetchEvents().then(data => { if (data) setDbEvents(data) })
+        alert('Could not save changes. Please try again.')
+      }
+    }
   }
 
   // ── Join virtual queue ─────────────────────────────────────────────────
@@ -4113,6 +4213,11 @@ export default function App() {
                   >
                     {isGoing ? "✓ I'M GOING" : status === 'past' ? 'PAST EVENT' : "I'LL BE THERE"}
                   </button>
+                  {session?.user?.id && isAdmin && (
+                    <button className="btn-edit-event" onClick={() => handleOpenEditEvent(event)}>
+                      EDIT
+                    </button>
+                  )}
                   {session?.user?.id && (canDeleteAny || event.user_id === session.user.id) ? (
                     <button className="btn-delete-event" onClick={() => setDeleteEventConfirm(event.id)}>
                       DELETE
@@ -4522,14 +4627,14 @@ export default function App() {
       )}
 
       {/* ── CREATE EVENT FORM SHEET ──────────────────────────────────── */}
-      <div className={`event-form-overlay${eventFormOpen ? ' open' : ''}`} onClick={() => setEventFormOpen(false)} />
+      <div className={`event-form-overlay${eventFormOpen ? ' open' : ''}`} onClick={() => { setEventFormOpen(false); setEditingEventId(null) }} />
       <div className={`event-form-sheet${eventFormOpen ? ' open' : ''}`}>
         {/* Header */}
         <div className="sheet-header">
           <div className="sheet-handle-wrap" style={{ padding: '12px 0 4px' }}>
             <div className="sheet-handle" />
           </div>
-          <div className="sheet-title">POST AN EVENT DROP</div>
+          <div className="sheet-title">{editingEventId ? 'EDIT EVENT' : 'POST AN EVENT DROP'}</div>
         </div>
 
         <div className="event-form-body">
@@ -4750,13 +4855,13 @@ export default function App() {
         </div>
 
         <div className="event-form-footer">
-          <button className="btn-evt-cancel" onClick={() => setEventFormOpen(false)}>CANCEL</button>
+          <button className="btn-evt-cancel" onClick={() => { setEventFormOpen(false); setEditingEventId(null) }}>CANCEL</button>
           <button
             className="btn-evt-submit"
-            onClick={handlePostEvent}
+            onClick={editingEventId ? handleUpdateEvent : handlePostEvent}
             disabled={!evtName.trim() || !evtStoreName.trim() || !evtCity.trim() || !evtDate}
           >
-            POST EVENT
+            {editingEventId ? 'SAVE CHANGES' : 'POST EVENT'}
           </button>
         </div>
       </div>
