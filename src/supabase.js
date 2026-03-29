@@ -319,6 +319,19 @@ export async function upsertProfile(userId, email, displayName) {
     .upsert({ user_id: userId, email, display_name: displayName }, { onConflict: 'user_id' })
 }
 
+// Fetch all profiles with their roles merged in (admin use)
+export async function fetchAllProfilesWithRoles() {
+  if (!supabase) return []
+  const [{ data: profiles, error: pe }, { data: roles }] = await Promise.all([
+    supabase.from('profiles').select('user_id, email, display_name').order('email'),
+    supabase.from('user_roles').select('user_id, role'),
+  ])
+  if (pe) { console.warn('fetchAllProfilesWithRoles:', pe.message); return [] }
+  const roleMap = {}
+  if (roles) roles.forEach(r => { roleMap[r.user_id] = r.role })
+  return (profiles || []).map(p => ({ ...p, role: roleMap[p.user_id] || 'drinker' }))
+}
+
 // Search profiles by email (admin use)
 export async function searchProfiles(query) {
   if (!supabase || !query.trim()) return []

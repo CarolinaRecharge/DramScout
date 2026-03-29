@@ -9,6 +9,7 @@ import {
   signInWithGoogle, signOut, getSession, onAuthStateChange,
   fetchUserSightings, fetchUserFavorites, toggleStoreFavorite, deleteSighting,
   fetchUserRole, upsertUserRole, upsertProfile, searchProfiles, fetchRoleForUser,
+  fetchAllProfilesWithRoles,
   deleteSightingAdmin, deleteEventAdmin,
 } from './supabase'
 
@@ -2241,19 +2242,31 @@ body {
   border-radius: 10px;
   padding: 14px;
 }
+.admin-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
 .admin-panel-title {
   font-family: 'Courier Prime', monospace;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
   color: var(--gold);
-  margin-bottom: 12px;
   text-transform: uppercase;
+}
+.admin-panel-count {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--ghost);
 }
 .admin-search-row {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 10px;
+  position: relative;
 }
 .admin-search-input {
   flex: 1;
@@ -2267,25 +2280,26 @@ body {
   outline: none;
 }
 .admin-search-input:focus { border-color: var(--gold); }
-.btn-admin-search {
-  background: rgba(193,125,14,0.12);
-  border: 1px solid var(--gold);
-  border-radius: 6px;
-  color: var(--gold);
-  font-family: 'Courier Prime', monospace;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: 8px 14px;
+.btn-admin-clear {
+  background: none;
+  border: none;
+  color: var(--ghost);
+  font-size: 14px;
   cursor: pointer;
-  white-space: nowrap;
+  padding: 4px 6px;
+  line-height: 1;
 }
-.btn-admin-search:hover { background: rgba(193,125,14,0.22); }
+.btn-admin-clear:hover { color: var(--parchment); }
+.admin-user-list {
+  max-height: 400px;
+  overflow-y: auto;
+  border-radius: 6px;
+}
 .admin-user-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 0;
+  padding: 9px 4px;
   border-bottom: 1px solid var(--rule);
 }
 .admin-user-row:last-child { border-bottom: none; }
@@ -2302,6 +2316,24 @@ body {
   font-family: 'Courier Prime', monospace;
   font-size: 10px;
   color: var(--ghost);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-user-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.admin-role-badge {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 .admin-role-select {
   background: var(--card);
@@ -2315,6 +2347,13 @@ body {
   outline: none;
 }
 .admin-role-select:focus { border-color: var(--gold); }
+.admin-loading, .admin-empty {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--ghost);
+  text-align: center;
+  padding: 14px 0;
+}
 
 .profile-section-header {
   padding: 16px 16px 10px;
@@ -2832,6 +2871,8 @@ export default function App() {
   const [userRole, setUserRole] = useState('drinker')
   const [adminSearch, setAdminSearch] = useState('')
   const [adminSearchResults, setAdminSearchResults] = useState([])
+  const [allUsers, setAllUsers] = useState(null)         // null = not loaded yet
+  const [allUsersLoading, setAllUsersLoading] = useState(false)
   const [favorites, setFavorites] = useState(new Set())
   const [userSightings, setUserSightings] = useState([])
   const [deleteConfirm, setDeleteConfirm] = useState(null) // sighting id pending delete
@@ -2938,6 +2979,17 @@ export default function App() {
     getSession().then(initSession)
     return onAuthStateChange((_event, sess) => initSession(sess))
   }, [])
+
+  // ── Load all users when admin session is ready ────────────────────────
+  useEffect(() => {
+    const isAdminNow = session?.user?.email === ADMIN_EMAIL || userRole === 'admin'
+    if (!isAdminNow || allUsers !== null) return
+    setAllUsersLoading(true)
+    fetchAllProfilesWithRoles().then(data => {
+      setAllUsers(data)
+      setAllUsersLoading(false)
+    })
+  }, [session, userRole])
 
   // ── Pre-fill reporter handle from Google profile ───────────────────────
   useEffect(() => {
@@ -4268,58 +4320,86 @@ export default function App() {
               </div>
 
               {/* ── Admin Panel ────────────────────────────────────── */}
-              {isAdmin && (
-                <div className="admin-panel">
-                  <div className="admin-panel-title">⚙ Admin — Manage User Roles</div>
-                  <div className="admin-search-row">
-                    <input
-                      className="admin-search-input"
-                      placeholder="Search by email..."
-                      value={adminSearch}
-                      onChange={e => setAdminSearch(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && searchProfiles(adminSearch).then(setAdminSearchResults)}
-                    />
-                    <button
-                      className="btn-admin-search"
-                      onClick={() => searchProfiles(adminSearch).then(setAdminSearchResults)}
-                    >SEARCH</button>
-                  </div>
-                  {adminSearchResults.map(u => (
-                    <div key={u.user_id} className="admin-user-row">
-                      <div className="admin-user-info">
-                        <div className="admin-user-email">{u.email}</div>
-                        {u.display_name && <div className="admin-user-name">{u.display_name}</div>}
+              {isAdmin && (() => {
+                const filtered = (allUsers || []).filter(u => {
+                  if (!adminSearch.trim()) return true
+                  const q = adminSearch.toLowerCase()
+                  return (u.email || '').toLowerCase().includes(q) ||
+                         (u.display_name || '').toLowerCase().includes(q)
+                })
+                return (
+                  <div className="admin-panel">
+                    <div className="admin-panel-header">
+                      <div className="admin-panel-title">⚙ USER MANAGEMENT</div>
+                      <div className="admin-panel-count">
+                        {allUsersLoading ? 'Loading…' : `${(allUsers || []).length} users`}
                       </div>
-                      <select
-                        className="admin-role-select"
-                        defaultValue=""
-                        onChange={async e => {
-                          const newRole = e.target.value
-                          if (!newRole) return
-                          const ok = await upsertUserRole(u.user_id, newRole)
-                          if (ok) {
-                            e.target.value = ''
-                            alert(`Role updated to ${newRole} for ${u.email}`)
-                          } else {
-                            alert('Failed to update role')
-                          }
-                        }}
-                      >
-                        <option value="" disabled>Set role…</option>
-                        <option value="drinker">Drinker</option>
-                        <option value="collector">Collector</option>
-                        <option value="store">Store</option>
-                        <option value="admin">Admin</option>
-                      </select>
                     </div>
-                  ))}
-                  {adminSearchResults.length === 0 && adminSearch && (
-                    <div style={{ fontFamily: "'Courier Prime', monospace", fontSize: 10, color: 'var(--ghost)' }}>
-                      No users found — they must have signed in at least once
+                    <div className="admin-search-row">
+                      <input
+                        className="admin-search-input"
+                        placeholder="Search by email or name..."
+                        value={adminSearch}
+                        onChange={e => setAdminSearch(e.target.value)}
+                      />
+                      {adminSearch && (
+                        <button className="btn-admin-clear" onClick={() => setAdminSearch('')}>✕</button>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
+
+                    {allUsersLoading && (
+                      <div className="admin-loading">Loading users…</div>
+                    )}
+
+                    {!allUsersLoading && filtered.length === 0 && (
+                      <div className="admin-empty">
+                        {adminSearch ? 'No users match that search.' : 'No users have signed in yet.'}
+                      </div>
+                    )}
+
+                    {!allUsersLoading && filtered.length > 0 && (
+                      <div className="admin-user-list">
+                        {filtered.map(u => {
+                          const rl = ROLE_LABELS[u.role] || ROLE_LABELS.drinker
+                          return (
+                            <div key={u.user_id} className="admin-user-row">
+                              <div className="admin-user-info">
+                                <div className="admin-user-email">{u.email}</div>
+                                {u.display_name && <div className="admin-user-name">{u.display_name}</div>}
+                              </div>
+                              <div className="admin-user-right">
+                                <span className="admin-role-badge" style={{ color: rl.color, background: rl.bg }}>
+                                  {rl.label}
+                                </span>
+                                <select
+                                  className="admin-role-select"
+                                  value={u.role || 'drinker'}
+                                  onChange={async e => {
+                                    const newRole = e.target.value
+                                    const ok = await upsertUserRole(u.user_id, newRole)
+                                    if (ok) {
+                                      setAllUsers(prev => (prev || []).map(p =>
+                                        p.user_id === u.user_id ? { ...p, role: newRole } : p
+                                      ))
+                                    } else {
+                                      alert('Failed to update role')
+                                    }
+                                  }}
+                                >
+                                  <option value="drinker">Drinker</option>
+                                  <option value="collector">Collector</option>
+                                  <option value="store">Store</option>
+                                  <option value="admin">Admin</option>
+                                </select>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* My Sightings */}
               <div className="profile-section-header">
