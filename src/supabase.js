@@ -329,7 +329,7 @@ export async function fetchAllProfilesWithRoles() {
   if (pe) { console.warn('fetchAllProfilesWithRoles:', pe.message); return [] }
   const roleMap = {}
   if (roles) roles.forEach(r => { roleMap[r.user_id] = r.role })
-  return (profiles || []).map(p => ({ ...p, role: roleMap[p.user_id] || 'drinker' }))
+  return (profiles || []).map(p => ({ ...p, role: roleMap[p.user_id] || 'scout' }))
 }
 
 // Search profiles by email (admin use)
@@ -346,13 +346,13 @@ export async function searchProfiles(query) {
 
 // Fetch role for a specific user_id (admin panel lookup)
 export async function fetchRoleForUser(userId) {
-  if (!supabase || !userId) return 'drinker'
+  if (!supabase || !userId) return 'scout'
   const { data } = await supabase
     .from('user_roles')
     .select('role')
     .eq('user_id', userId)
     .single()
-  return data?.role || 'drinker'
+  return data?.role || 'scout'
 }
 
 // Admin: delete any sighting (requires RLS policy allowing admin role)

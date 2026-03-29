@@ -14,12 +14,12 @@ import {
 } from './supabase'
 
 const ADMIN_EMAIL = 'danielk.black95@gmail.com'
-const ROLE_ORDER = { admin: 4, store: 3, collector: 2, drinker: 1 }
+const ROLE_ORDER = { admin: 4, store: 3, collector: 2, scout: 1 }
 const ROLE_LABELS = {
   admin:     { label: 'ADMIN',     color: '#C17D0E', bg: 'rgba(193,125,14,0.12)',  desc: 'Full access — can manage all content and users' },
   store:     { label: 'STORE',     color: '#4A9ECA', bg: 'rgba(74,158,202,0.12)',  desc: 'Can create Drops, Meet-ups, and Tastings' },
   collector: { label: 'COLLECTOR', color: '#9E5EA8', bg: 'rgba(158,94,168,0.12)',  desc: 'Can create Meet-ups and Tastings' },
-  drinker:   { label: 'DRINKER',   color: 'var(--ghost)', bg: 'rgba(255,255,255,0.05)', desc: 'Can post sightings and confirm others' },
+  scout:     { label: 'SCOUT',     color: 'var(--ghost)', bg: 'rgba(255,255,255,0.05)', desc: 'Can post sightings and confirm others' },
 }
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
@@ -2964,7 +2964,7 @@ export default function App() {
     if (!supabase) return
     async function initSession(sess) {
       setSession(sess)
-      if (!sess?.user) { setUserRole('drinker'); return }
+      if (!sess?.user) { setUserRole('scout'); return }
       // Persist profile row so admin can look up users by email
       upsertProfile(sess.user.id, sess.user.email, sess.user.user_metadata?.full_name || null)
       // Seed admin role on first login for the designated admin email
@@ -2974,7 +2974,7 @@ export default function App() {
         return
       }
       const role = await fetchUserRole(sess.user.id)
-      setUserRole(role || 'drinker')
+      setUserRole(role || 'scout')
     }
     getSession().then(initSession)
     return onAuthStateChange((_event, sess) => initSession(sess))
@@ -4360,7 +4360,7 @@ export default function App() {
                     {!allUsersLoading && filtered.length > 0 && (
                       <div className="admin-user-list">
                         {filtered.map(u => {
-                          const rl = ROLE_LABELS[u.role] || ROLE_LABELS.drinker
+                          const rl = ROLE_LABELS[u.role] || ROLE_LABELS.scout
                           return (
                             <div key={u.user_id} className="admin-user-row">
                               <div className="admin-user-info">
@@ -4373,7 +4373,7 @@ export default function App() {
                                 </span>
                                 <select
                                   className="admin-role-select"
-                                  value={u.role || 'drinker'}
+                                  value={u.role || 'scout'}
                                   onChange={async e => {
                                     const newRole = e.target.value
                                     const ok = await upsertUserRole(u.user_id, newRole)
@@ -4386,7 +4386,7 @@ export default function App() {
                                     }
                                   }}
                                 >
-                                  <option value="drinker">Drinker</option>
+                                  <option value="scout">Scout</option>
                                   <option value="collector">Collector</option>
                                   <option value="store">Store</option>
                                   <option value="admin">Admin</option>
