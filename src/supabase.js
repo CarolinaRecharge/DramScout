@@ -258,6 +258,50 @@ export async function toggleStoreFavorite(storeId, userId, isCurrentlyFavorited)
   }
 }
 
+// ── Push Notifications ────────────────────────────────────────────────────────
+
+export async function fetchNotificationPrefs(userId) {
+  if (!supabase || !userId) return null
+  const { data, error } = await supabase
+    .from('notification_prefs')
+    .select('*')
+    .eq('user_id', userId)
+    .single()
+  if (error) { if (error.code !== 'PGRST116') console.warn('fetchNotificationPrefs:', error.message); return null }
+  return data
+}
+
+export async function upsertNotificationPrefs(userId, prefs) {
+  if (!supabase || !userId) return false
+  const { error } = await supabase
+    .from('notification_prefs')
+    .upsert({ user_id: userId, ...prefs, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+  if (error) { console.warn('upsertNotificationPrefs:', error.message); return false }
+  return true
+}
+
+export async function savePushSubscription(userId, subscription) {
+  if (!supabase || !userId) return false
+  const { error } = await supabase
+    .from('push_subscriptions')
+    .upsert(
+      { user_id: userId, endpoint: subscription.endpoint, p256dh: subscription.p256dh, auth: subscription.auth },
+      { onConflict: 'endpoint' }
+    )
+  if (error) { console.warn('savePushSubscription:', error.message); return false }
+  return true
+}
+
+export async function deletePushSubscription(endpoint) {
+  if (!supabase || !endpoint) return false
+  const { error } = await supabase
+    .from('push_subscriptions')
+    .delete()
+    .eq('endpoint', endpoint)
+  if (error) { console.warn('deletePushSubscription:', error.message); return false }
+  return true
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 export async function signInWithGoogle() {

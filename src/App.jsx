@@ -13,6 +13,7 @@ import {
   fetchAllProfilesWithRoles,
   deleteSightingAdmin, deleteEventAdmin,
   fetchComments, postComment, deleteComment, deleteCommentAdmin,
+  fetchNotificationPrefs, upsertNotificationPrefs, savePushSubscription, deletePushSubscription,
 } from './supabase'
 
 const ADMIN_EMAIL = 'danielk.black95@gmail.com'
@@ -2533,6 +2534,100 @@ body {
   justify-content: space-between;
 }
 
+/* ── Notification Settings ──────────────────────────────────────────────── */
+.notif-settings-panel {
+  margin: 0 12px 12px;
+  background: rgba(74,158,202,0.06);
+  border: 1px solid rgba(74,158,202,0.25);
+  border-radius: 10px;
+  padding: 14px;
+}
+.notif-settings-header {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #4A9ECA;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.notif-toggle-row { margin-bottom: 12px; }
+.notif-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.notif-toggle-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #4A9ECA;
+  cursor: pointer;
+}
+.notif-toggle-text {
+  font-family: 'Courier Prime', monospace;
+  font-size: 13px;
+  color: var(--parchment);
+}
+.notif-radius-label {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--ghost);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.notif-radius-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.notif-radius-btn {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.notif-radius-btn:hover { border-color: #4A9ECA; color: var(--parchment); }
+.notif-radius-btn.active {
+  background: rgba(74,158,202,0.15);
+  border-color: #4A9ECA;
+  color: #4A9ECA;
+  font-weight: 700;
+}
+.notif-location-btn {
+  background: rgba(74,158,202,0.1);
+  border: 1px solid rgba(74,158,202,0.4);
+  border-radius: 6px;
+  color: #4A9ECA;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  padding: 7px 12px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: background 0.15s;
+}
+.notif-location-btn:hover { background: rgba(74,158,202,0.2); }
+.notif-location-set {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--ghost);
+  margin-bottom: 8px;
+}
+.notif-favorites-note {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--ghost);
+  font-style: italic;
+  margin-top: 4px;
+}
+
 .profile-section-count {
   color: var(--ghost);
   font-weight: 400;
@@ -3066,6 +3161,10 @@ export default function App() {
   const [commentSubmitting, setCommentSubmitting] = useState(false)
   const [replyingTo, setReplyingTo] = useState(null)       // { id, handle } of comment being replied to
   const [expandedReplies, setExpandedReplies] = useState(new Set())
+  // Push notifications
+  const [notifPrefs, setNotifPrefs] = useState({ enabled: false, radius_miles: 25, lat: null, lng: null })
+  const [notifLoading, setNotifLoading] = useState(false)
+  const [pushSupported, setPushSupported] = useState(false)
   // Event type filter
   const [evtTypeFilter, setEvtTypeFilter] = useState('all')
   // Event creation form
@@ -3169,6 +3268,13 @@ export default function App() {
     getSession().then(initSession)
     return onAuthStateChange((_event, sess) => initSession(sess))
   }, [])
+
+  // ── Load notification prefs when session is ready ────────────────────
+  useEffect(() => {
+    setPushSupported('serviceWorker' in navigator && 'PushManager' in window)
+    if (!session?.user) return
+    fetchNotificationPrefs(session.user.id).then(p => { if (p) setNotifPrefs(p) })
+  }, [session])
 
   // ── Load all users when admin session is ready ────────────────────────
   useEffect(() => {
@@ -3560,6 +3666,82 @@ export default function App() {
     } else {
       alert(`Could not delete sighting: ${result.error}`)
     }
+  }
+
+  // ── Push Notifications ─────────────────────────────────────────────────
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+    const raw = atob(base64)
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)))
+  }
+
+  async function subscribeToPush() {
+    if (!pushSupported || !session?.user) return null
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js')
+      const existing = await reg.pushManager.getSubscription()
+      const sub = existing || await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
+      })
+      await savePushSubscription(session.user.id, {
+        endpoint: sub.endpoint,
+        p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))),
+        auth:   btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))),
+      })
+      return sub
+    } catch (err) {
+      console.warn('subscribeToPush:', err)
+      return null
+    }
+  }
+
+  async function unsubscribeFromPush() {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration('/sw.js')
+      if (!reg) return
+      const sub = await reg.pushManager.getSubscription()
+      if (sub) {
+        await deletePushSubscription(sub.endpoint)
+        await sub.unsubscribe()
+      }
+    } catch (err) {
+      console.warn('unsubscribeFromPush:', err)
+    }
+  }
+
+  async function handleToggleNotifications(enabled) {
+    if (!session?.user) return
+    setNotifLoading(true)
+    if (enabled) {
+      const sub = await subscribeToPush()
+      if (!sub) { setNotifLoading(false); return }
+    } else {
+      await unsubscribeFromPush()
+    }
+    const updated = { ...notifPrefs, enabled }
+    setNotifPrefs(updated)
+    await upsertNotificationPrefs(session.user.id, updated)
+    setNotifLoading(false)
+  }
+
+  async function handleNotifRadiusChange(radius_miles) {
+    if (!session?.user) return
+    const updated = { ...notifPrefs, radius_miles }
+    setNotifPrefs(updated)
+    await upsertNotificationPrefs(session.user.id, updated)
+  }
+
+  async function handleSetNotifLocation() {
+    if (!session?.user) return
+    navigator.geolocation.getCurrentPosition(async pos => {
+      const updated = { ...notifPrefs, lat: pos.coords.latitude, lng: pos.coords.longitude }
+      setNotifPrefs(updated)
+      await upsertNotificationPrefs(session.user.id, updated)
+    }, () => {
+      alert('Location access denied. Please allow location access and try again.')
+    })
   }
 
   // ── Comments ───────────────────────────────────────────────────────────
@@ -4028,6 +4210,19 @@ export default function App() {
       })
       const row = saved ? { ...saved, store: saved.store_name, confirmations: 0 } : localSighting
       setDbSightings(prev => [row, ...(prev || [])])
+      if (saved) {
+        fetch('/api/notify-sighting', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sightingId: saved.id,
+            storeName: saved.store_name,
+            storeId: saved.store_id,
+            lat: saved.lat,
+            lng: saved.lng,
+          }),
+        }).catch(() => {}) // fire-and-forget
+      }
     } else {
       setDbSightings(prev => [localSighting, ...(prev || [])])
     }
@@ -4683,6 +4878,58 @@ export default function App() {
                   </div>
                 )
               })()}
+
+              {/* ── Push Notifications ───────────────────────────────────── */}
+              {['admin', 'store', 'collector'].includes(effectiveRole) && pushSupported && (
+                <div className="notif-settings-panel">
+                  <div className="notif-settings-header">NOTIFICATIONS</div>
+
+                  <div className="notif-toggle-row">
+                    <label className="notif-toggle-label">
+                      <input
+                        type="checkbox"
+                        className="notif-toggle-checkbox"
+                        checked={notifPrefs.enabled}
+                        disabled={notifLoading}
+                        onChange={e => handleToggleNotifications(e.target.checked)}
+                      />
+                      <span className="notif-toggle-text">
+                        {notifLoading ? 'Updating…' : 'Enable push notifications'}
+                      </span>
+                    </label>
+                  </div>
+
+                  {notifPrefs.enabled && (
+                    <>
+                      <div className="notif-radius-label">Notification Radius</div>
+                      <div className="notif-radius-row">
+                        {[5, 10, 25, 50, 999999].map(r => (
+                          <button
+                            key={r}
+                            className={`notif-radius-btn${notifPrefs.radius_miles === r ? ' active' : ''}`}
+                            onClick={() => handleNotifRadiusChange(r)}
+                          >
+                            {r >= 999999 ? 'Nationwide' : `${r} mi`}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button className="notif-location-btn" onClick={handleSetNotifLocation}>
+                        {notifPrefs.lat && notifPrefs.lng ? 'Update My Location' : 'Set My Location'}
+                      </button>
+                      {notifPrefs.lat && notifPrefs.lng && (
+                        <div className="notif-location-set">
+                          Location set ({notifPrefs.lat.toFixed(3)}, {notifPrefs.lng.toFixed(3)})
+                        </div>
+                      )}
+
+                      <div className="notif-favorites-note">
+                        Favorite stores always notify regardless of radius.
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* My Sightings */}
               <div className="profile-section-header">
