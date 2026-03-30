@@ -2634,6 +2634,12 @@ body {
   margin-top: 8px;
   line-height: 1.5;
 }
+.notif-unsupported {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--ghost);
+  line-height: 1.5;
+}
 
 .profile-section-count {
   color: var(--ghost);
@@ -3279,7 +3285,10 @@ export default function App() {
 
   // ── Load notification prefs when session is ready ────────────────────
   useEffect(() => {
-    setPushSupported('serviceWorker' in navigator && 'PushManager' in window)
+    // Opera strips Google services so FCM push subscriptions fail — exclude it
+    const ua = navigator.userAgent
+    const isOpera = /OPR\/|Opera\//.test(ua)
+    setPushSupported(!isOpera && 'serviceWorker' in navigator && 'PushManager' in window)
     if (!session?.user) return
     fetchNotificationPrefs(session.user.id).then(p => { if (p) setNotifPrefs(p) })
   }, [session])
@@ -4925,6 +4934,14 @@ export default function App() {
               })()}
 
               {/* ── Push Notifications ───────────────────────────────────── */}
+              {['admin', 'store', 'collector'].includes(effectiveRole) && !pushSupported && (
+                <div className="notif-settings-panel">
+                  <div className="notif-settings-header">NOTIFICATIONS</div>
+                  <div className="notif-unsupported">
+                    Push notifications require Chrome or Edge. Opera and some other browsers do not support the push service used by DramScout.
+                  </div>
+                </div>
+              )}
               {['admin', 'store', 'collector'].includes(effectiveRole) && pushSupported && (
                 <div className="notif-settings-panel">
                   <div className="notif-settings-header">NOTIFICATIONS</div>
