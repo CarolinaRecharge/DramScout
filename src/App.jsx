@@ -12,6 +12,7 @@ import {
   fetchUserRole, upsertUserRole, upsertProfile, searchProfiles, fetchRoleForUser,
   fetchAllProfilesWithRoles,
   deleteSightingAdmin, deleteEventAdmin,
+  fetchComments, postComment, deleteComment, deleteCommentAdmin,
 } from './supabase'
 
 const ADMIN_EMAIL = 'danielk.black95@gmail.com'
@@ -2356,6 +2357,111 @@ body {
   padding: 14px 0;
 }
 
+/* ── Comments ── */
+.card-comment-count {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  color: var(--ghost);
+  letter-spacing: 0.04em;
+}
+.comment-row {
+  position: relative;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--rule);
+}
+.comment-row:last-child { border-bottom: none; }
+.comment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.comment-handle {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.06em;
+}
+.comment-time {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  color: var(--ghost);
+}
+.comment-body {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  color: var(--parchment);
+  line-height: 1.5;
+  padding-right: 24px;
+}
+.comment-delete {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--ghost);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  opacity: 0.5;
+}
+.comment-delete:hover { opacity: 1; color: var(--urgent); }
+.comments-empty {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--ghost);
+  text-align: center;
+  padding: 30px 20px;
+}
+.comment-input-row {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border-top: 1px solid var(--rule);
+}
+.comment-input {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--parchment);
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  padding: 8px 10px;
+  outline: none;
+}
+.comment-input:focus { border-color: var(--gold); }
+.comment-submit {
+  background: rgba(193,125,14,0.12);
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  color: var(--gold);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 8px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.comment-submit:hover { background: rgba(193,125,14,0.22); }
+.comment-submit:disabled { opacity: 0.4; cursor: default; }
+.comment-sign-in-prompt {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--ghost);
+  text-align: center;
+  padding: 14px;
+  border-top: 1px solid var(--rule);
+}
+
 .profile-section-header {
   padding: 16px 16px 10px;
   font-family: 'Courier Prime', monospace;
@@ -2894,6 +3000,12 @@ export default function App() {
   const [favorites, setFavorites] = useState(new Set())
   const [userSightings, setUserSightings] = useState([])
   const [deleteConfirm, setDeleteConfirm] = useState(null) // sighting id pending delete
+  // Comments
+  const [commentSighting, setCommentSighting] = useState(null)  // sighting being viewed
+  const [comments, setComments] = useState([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [commentText, setCommentText] = useState('')
+  const [commentSubmitting, setCommentSubmitting] = useState(false)
   // Event type filter
   const [evtTypeFilter, setEvtTypeFilter] = useState('all')
   // Event creation form
@@ -3387,6 +3499,63 @@ export default function App() {
       setDbSightings(prev => prev ? prev.filter(s => s.id !== id) : prev)
     } else {
       alert(`Could not delete sighting: ${result.error}`)
+    }
+  }
+
+  // ── Comments ───────────────────────────────────────────────────────────
+  function handleOpenComments(sighting) {
+    setCommentSighting(sighting)
+    setComments([])
+    setCommentText('')
+    setCommentsLoading(true)
+    fetchComments(sighting.id).then(data => {
+      setComments(data)
+      setCommentsLoading(false)
+    })
+  }
+
+  function handleCloseComments() {
+    setCommentSighting(null)
+    setComments([])
+    setCommentText('')
+  }
+
+  async function handlePostComment() {
+    if (!session?.user?.id || !commentText.trim() || !commentSighting) return
+    const badWords = getProfaneWords(commentText)
+    if (badWords.length > 0) {
+      alert(`Your comment contains language that isn't allowed. Please remove or replace: ${badWords.join(', ')}`)
+      return
+    }
+    const handle = reporterHandle.trim() || session.user.user_metadata?.full_name || ('scout_' + getFingerprint().slice(-4))
+    setCommentSubmitting(true)
+    const saved = await postComment(commentSighting.id, session.user.id, handle, commentText.trim())
+    if (saved) {
+      setComments(prev => [...prev, saved])
+      setCommentText('')
+      // Update comment count in feed
+      setDbSightings(prev => (prev || []).map(s =>
+        s.id === commentSighting.id ? { ...s, comment_count: (s.comment_count || 0) + 1 } : s
+      ))
+      setCommentSighting(prev => ({ ...prev, comment_count: (prev.comment_count || 0) + 1 }))
+    } else {
+      alert('Could not post comment. Please try again.')
+    }
+    setCommentSubmitting(false)
+  }
+
+  async function handleDeleteComment(commentId, commentUserId) {
+    const result = canDeleteAny
+      ? await deleteCommentAdmin(commentId)
+      : await deleteComment(commentId, commentUserId)
+    if (result.ok) {
+      setComments(prev => prev.filter(c => c.id !== commentId))
+      setDbSightings(prev => (prev || []).map(s =>
+        s.id === commentSighting?.id ? { ...s, comment_count: Math.max(0, (s.comment_count || 1) - 1) } : s
+      ))
+      setCommentSighting(prev => prev ? { ...prev, comment_count: Math.max(0, (prev.comment_count || 1) - 1) } : prev)
+    } else {
+      alert('Could not delete comment.')
     }
   }
 
@@ -3993,7 +4162,7 @@ export default function App() {
           const confirmCount = isConfirmed ? s.confirmations + 1 : s.confirmations
 
           return (
-            <div key={s.id} className="sighting-card">
+            <div key={s.id} className="sighting-card" onClick={() => handleOpenComments(s)} style={{ cursor: 'pointer' }}>
               <div className="card-top-row">
                 <span className={`freshness-badge tier-${tier}`}>
                   <span className="freshness-dot" />
@@ -4013,7 +4182,10 @@ export default function App() {
 
               <div className="card-meta-row">
                 <span className="card-meta">@{s.reporter}</span>
-                <span className="card-confirmed">✓ {confirmCount} confirmed</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className="card-confirmed">✓ {confirmCount} confirmed</span>
+                  <span className="card-comment-count">💬 {s.comment_count || 0}</span>
+                </div>
               </div>
 
               {s.notes && (
@@ -4025,24 +4197,24 @@ export default function App() {
               <div className="card-actions">
                 <button
                   className={`btn-saw-it${isConfirmed ? ' confirmed' : ''}`}
-                  onClick={() => !isConfirmed && handleConfirm(s.id)}
+                  onClick={e => { e.stopPropagation(); !isConfirmed && handleConfirm(s.id) }}
                 >
                   {isConfirmed ? '✓ CONFIRMED' : 'I SAW THIS'}
                 </button>
-                <button className="btn-view-map" onClick={() => handleViewOnMap(s)}>
+                <button className="btn-view-map" onClick={e => { e.stopPropagation(); handleViewOnMap(s) }}>
                   VIEW ON MAP
                 </button>
                 {session && s.storeId && (
                   <button
                     className={`btn-favorite${favorites.has(s.storeId) ? ' favorited' : ''}`}
-                    onClick={() => handleToggleFavorite(s.storeId)}
+                    onClick={e => { e.stopPropagation(); handleToggleFavorite(s.storeId) }}
                     title={favorites.has(s.storeId) ? 'Remove favorite' : 'Save store'}
                   >
                     {favorites.has(s.storeId) ? '★' : '☆'}
                   </button>
                 )}
                 {canDeleteAny && (
-                  <button className="btn-delete-sighting" onClick={() => setDeleteConfirm(s.id)}
+                  <button className="btn-delete-sighting" onClick={e => { e.stopPropagation(); setDeleteConfirm(s.id) }}
                     style={{ fontSize: 9, padding: '4px 8px' }}
                     title="Admin: delete sighting"
                   >✕</button>
@@ -4741,6 +4913,78 @@ export default function App() {
           </div>
         </>
       )}
+
+      {/* ── COMMENTS SHEET ───────────────────────────────────────────── */}
+      <div className={`event-form-overlay${commentSighting ? ' open' : ''}`} onClick={handleCloseComments} />
+      <div className={`event-form-sheet${commentSighting ? ' open' : ''}`}>
+        {commentSighting && (
+          <>
+            <div className="sheet-header">
+              <div className="sheet-handle-wrap" style={{ padding: '12px 0 4px' }}>
+                <div className="sheet-handle" />
+              </div>
+              <div className="sheet-title">COMMENTS</div>
+              <div style={{ fontFamily: "'Courier Prime', monospace", fontSize: 11, color: 'var(--ghost)', padding: '0 20px 10px', letterSpacing: '0.06em' }}>
+                {commentSighting.store} · {commentSighting.city}
+              </div>
+            </div>
+
+            <div className="event-form-body" style={{ paddingBottom: session ? 80 : 20 }}>
+              {commentsLoading && (
+                <div className="comments-empty">Loading comments…</div>
+              )}
+              {!commentsLoading && comments.length === 0 && (
+                <div className="comments-empty">No comments yet — be the first!</div>
+              )}
+              {!commentsLoading && comments.map(c => (
+                <div key={c.id} className="comment-row">
+                  <div className="comment-header">
+                    <span className="comment-handle">@{c.handle}</span>
+                    <span className="comment-time">
+                      {(() => {
+                        const mins = Math.floor((Date.now() - new Date(c.created_at).getTime()) / 60000)
+                        if (mins < 1) return 'just now'
+                        if (mins < 60) return `${mins}m ago`
+                        const hrs = Math.floor(mins / 60)
+                        if (hrs < 24) return `${hrs}h ago`
+                        return `${Math.floor(hrs / 24)}d ago`
+                      })()}
+                    </span>
+                  </div>
+                  <div className="comment-body">{c.body}</div>
+                  {(canDeleteAny || c.user_id === session?.user?.id) && (
+                    <button className="comment-delete" onClick={() => handleDeleteComment(c.id, c.user_id)}>✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {session ? (
+              <div className="comment-input-row">
+                <input
+                  className="comment-input"
+                  placeholder="Add a comment…"
+                  value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handlePostComment()}
+                  maxLength={280}
+                />
+                <button
+                  className="comment-submit"
+                  onClick={handlePostComment}
+                  disabled={!commentText.trim() || commentSubmitting}
+                >
+                  {commentSubmitting ? '…' : 'POST'}
+                </button>
+              </div>
+            ) : (
+              <div className="comment-sign-in-prompt">
+                Sign in to leave a comment
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {/* ── CREATE EVENT FORM SHEET ──────────────────────────────────── */}
       <div className={`event-form-overlay${eventFormOpen ? ' open' : ''}`} onClick={() => { setEventFormOpen(false); setEditingEventId(null) }} />

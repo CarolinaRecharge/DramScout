@@ -355,6 +355,48 @@ export async function fetchRoleForUser(userId) {
   return data?.role || 'scout'
 }
 
+// ── Sighting comments ─────────────────────────────────────────────────────
+export async function fetchComments(sightingId) {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('sighting_comments')
+    .select('*')
+    .eq('sighting_id', sightingId)
+    .order('created_at', { ascending: true })
+  if (error) { console.warn('fetchComments:', error.message); return [] }
+  return data || []
+}
+
+export async function postComment(sightingId, userId, handle, body) {
+  if (!supabase) return null
+  const { data, error } = await supabase
+    .from('sighting_comments')
+    .insert({ sighting_id: sightingId, user_id: userId, handle, body })
+    .select()
+    .single()
+  if (error) { console.warn('postComment:', error.message); return null }
+  return data
+}
+
+export async function deleteComment(commentId, userId) {
+  if (!supabase) return { ok: false, error: 'No connection' }
+  const { error } = await supabase
+    .from('sighting_comments')
+    .delete()
+    .eq('id', commentId)
+    .eq('user_id', userId)
+  return error ? { ok: false, error: error.message } : { ok: true }
+}
+
+export async function deleteCommentAdmin(commentId) {
+  if (!supabase) return { ok: false, error: 'No connection' }
+  const { error } = await supabase
+    .from('sighting_comments')
+    .delete()
+    .eq('id', commentId)
+  return error ? { ok: false, error: error.message } : { ok: true }
+}
+
 // Admin: delete any sighting (requires RLS policy allowing admin role)
 export async function deleteSightingAdmin(sightingId) {
   if (!supabase) return { ok: false, error: 'No connection' }
