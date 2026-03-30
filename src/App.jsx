@@ -2715,8 +2715,19 @@ function getCountdown(date) {
 
 // ── Profanity filter ──────────────────────────────────────────────────────
 const profanityFilter = new Filter()
-function containsProfanity(...fields) {
-  return fields.some(f => f && profanityFilter.isProfane(f))
+function getProfaneWords(...fields) {
+  const found = new Set()
+  fields.forEach(f => {
+    if (!f || !profanityFilter.isProfane(f)) return
+    const original = f.split(/\s+/)
+    const cleaned  = profanityFilter.clean(f).split(/\s+/)
+    original.forEach((word, i) => {
+      if (cleaned[i] && cleaned[i].includes('*')) {
+        found.add(word.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())
+      }
+    })
+  })
+  return [...found]
 }
 
 const BOURBON_CATALOG = [
@@ -3403,8 +3414,9 @@ export default function App() {
     }
     if (!evtName.trim() || !evtStoreName.trim() || !evtCity.trim() || !evtDate) return
 
-    if (containsProfanity(evtName, evtRulesNotes, evtParking, evtOvernight, evtIdReq, evtLimit, evtOtherBottle)) {
-      alert('Your event contains language that isn\'t allowed. Please review your text fields and try again.')
+    const badEvtWords = getProfaneWords(evtName, evtRulesNotes, evtParking, evtOvernight, evtIdReq, evtLimit, evtOtherBottle)
+    if (badEvtWords.length > 0) {
+      alert(`Your event contains language that isn't allowed. Please remove or replace the following word${badEvtWords.length > 1 ? 's' : ''}:\n\n${badEvtWords.join(', ')}`)
       return
     }
 
@@ -3508,8 +3520,9 @@ export default function App() {
     }
     if (!evtName.trim() || !evtStoreName.trim() || !evtCity.trim() || !evtDate) return
 
-    if (containsProfanity(evtName, evtRulesNotes, evtParking, evtOvernight, evtIdReq, evtLimit, evtOtherBottle)) {
-      alert('Your event contains language that isn\'t allowed. Please review your text fields and try again.')
+    const badEvtWords = getProfaneWords(evtName, evtRulesNotes, evtParking, evtOvernight, evtIdReq, evtLimit, evtOtherBottle)
+    if (badEvtWords.length > 0) {
+      alert(`Your event contains language that isn't allowed. Please remove or replace the following word${badEvtWords.length > 1 ? 's' : ''}:\n\n${badEvtWords.join(', ')}`)
       return
     }
 
@@ -3703,8 +3716,9 @@ export default function App() {
 
     if (!bottleList.length || !storeName.trim()) return
 
-    if (containsProfanity(notes, reporterHandle, otherBottle, storeName, cityName)) {
-      alert('Your post contains language that isn\'t allowed. Please review your notes, handle, or bottle name and try again.')
+    const badWords = getProfaneWords(notes, reporterHandle, otherBottle, storeName, cityName)
+    if (badWords.length > 0) {
+      alert(`Your post contains language that isn't allowed. Please remove or replace the following word${badWords.length > 1 ? 's' : ''}:\n\n${badWords.join(', ')}`)
       return
     }
 
