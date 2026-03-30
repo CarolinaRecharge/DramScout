@@ -3693,21 +3693,35 @@ export default function App() {
     if (Notification.permission === 'denied') {
       throw new Error('Notification permission is blocked in your browser. Open your browser site settings and allow notifications for this site, then try again.')
     }
-    // register() returns immediately even while SW is installing;
-    // navigator.serviceWorker.ready resolves only once a SW is active.
-    // We must use the ready registration for pushManager.subscribe() —
-    // using the register() result directly causes "push service error"
-    // when reg.active is still null.
+
+    // Explicitly request permission first so Chrome properly establishes
+    // its link to the OS notification channel before contacting FCM
+    const permission = await Notification.requestPermission()
+    if (permission !== 'granted') {
+      throw new Error('Notification permission was not granted. Please allow notifications when prompted.')
+    }
+
+    console.log('[Push] Registering service worker…')
     await navigator.serviceWorker.register('/sw.js')
+    console.log('[Push] Waiting for service worker to become active…')
     const reg = await navigator.serviceWorker.ready
+    console.log('[Push] SW active. Scope:', reg.scope, 'Active:', reg.active?.state)
+
     const existing = await reg.pushManager.getSubscription()
     if (existing) {
+      console.log('[Push] Unsubscribing existing subscription…')
       await existing.unsubscribe()
     }
+
+    console.log('[Push] Subscribing with VAPID key (length:', vapidKey.length, ')…')
+    // Pass the VAPID key as a DOMString (base64url). Chrome 65+ accepts this
+    // directly; avoids any potential issue with the Uint8Array conversion path.
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      applicationServerKey: vapidKey,
     })
+    console.log('[Push] Subscribed! Endpoint:', sub.endpoint.slice(0, 60), '…')
+
     await savePushSubscription(session.user.id, {
       endpoint: sub.endpoint,
       p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))),
@@ -3740,7 +3754,11 @@ export default function App() {
         if (!sub) { setNotifLoading(false); return }
       } catch (err) {
         console.error('subscribeToPush failed:', err)
-        setNotifError(err.message || 'Could not enable notifications. Check the browser console for details.')
+        const isPushServiceError = err.message?.toLowerCase().includes('push service')
+        const msg = isPushServiceError
+          ? 'Push service error: Chrome could not register with Google\'s push service. On Windows, check Settings → System → Notifications and make sure Chrome is allowed to show notifications. Then try again.'
+          : (err.message || 'Could not enable notifications. Check the browser console for details.')
+        setNotifError(msg)
         setNotifLoading(false)
         return
       }
