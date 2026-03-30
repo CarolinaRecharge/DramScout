@@ -3686,17 +3686,23 @@ export default function App() {
 
   async function subscribeToPush() {
     if (!pushSupported || !session?.user) return null
-    if (!import.meta.env.VITE_VAPID_PUBLIC_KEY) {
+    const vapidKey = (import.meta.env.VITE_VAPID_PUBLIC_KEY || '').trim()
+    if (!vapidKey) {
       throw new Error('Push notifications are not configured yet. VITE_VAPID_PUBLIC_KEY must be set in your environment variables and the app redeployed.')
     }
     if (Notification.permission === 'denied') {
       throw new Error('Notification permission is blocked in your browser. Open your browser site settings and allow notifications for this site, then try again.')
     }
     const reg = await navigator.serviceWorker.register('/sw.js')
+    // Wait for the service worker to be ready before subscribing
+    await navigator.serviceWorker.ready
     const existing = await reg.pushManager.getSubscription()
-    const sub = existing || await reg.pushManager.subscribe({
+    if (existing) {
+      await existing.unsubscribe()
+    }
+    const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
+      applicationServerKey: urlBase64ToUint8Array(vapidKey),
     })
     await savePushSubscription(session.user.id, {
       endpoint: sub.endpoint,
@@ -3729,6 +3735,7 @@ export default function App() {
         const sub = await subscribeToPush()
         if (!sub) { setNotifLoading(false); return }
       } catch (err) {
+        console.error('subscribeToPush failed:', err)
         setNotifError(err.message || 'Could not enable notifications. Check the browser console for details.')
         setNotifLoading(false)
         return
