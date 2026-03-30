@@ -367,11 +367,13 @@ export async function fetchComments(sightingId) {
   return data || []
 }
 
-export async function postComment(sightingId, userId, handle, body) {
+export async function postComment(sightingId, userId, handle, body, parentId = null) {
   if (!supabase) return null
+  const payload = { sighting_id: sightingId, user_id: userId, handle, body }
+  if (parentId) payload.parent_id = parentId
   const { data, error } = await supabase
     .from('sighting_comments')
-    .insert({ sighting_id: sightingId, user_id: userId, handle, body })
+    .insert(payload)
     .select()
     .single()
   if (error) { console.warn('postComment:', error.message); return null }

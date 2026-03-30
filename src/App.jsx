@@ -2461,6 +2461,64 @@ body {
   padding: 14px;
   border-top: 1px solid var(--rule);
 }
+.comment-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.comment-reply-btn {
+  background: none;
+  border: none;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  padding: 0;
+}
+.comment-reply-btn:hover { color: var(--gold); }
+.comment-delete-inline {
+  background: none;
+  border: none;
+  color: var(--ghost);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.5;
+  margin-left: auto;
+}
+.comment-delete-inline:hover { opacity: 1; color: var(--urgent); }
+.reply-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.replies-section {
+  margin-top: 6px;
+  padding-left: 14px;
+  border-left: 2px solid var(--rule);
+}
+.replies-toggle {
+  background: none;
+  border: none;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.replies-toggle:hover { color: var(--parchment); }
+.replies-list { margin-top: 4px; }
+.reply-row {
+  position: relative;
+  padding: 6px 0 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.reply-row:last-child { border-bottom: none; }
 
 .profile-section-header {
   padding: 16px 16px 10px;
@@ -3006,6 +3064,8 @@ export default function App() {
   const [commentsLoading, setCommentsLoading] = useState(false)
   const [commentText, setCommentText] = useState('')
   const [commentSubmitting, setCommentSubmitting] = useState(false)
+  const [replyingTo, setReplyingTo] = useState(null)       // { id, handle } of comment being replied to
+  const [expandedReplies, setExpandedReplies] = useState(new Set())
   // Event type filter
   const [evtTypeFilter, setEvtTypeFilter] = useState('all')
   // Event creation form
@@ -3507,9 +3567,16 @@ export default function App() {
     setCommentSighting(sighting)
     setComments([])
     setCommentText('')
+    setReplyingTo(null)
+    setExpandedReplies(new Set())
     setCommentsLoading(true)
     fetchComments(sighting.id).then(data => {
       setComments(data)
+      // Auto-expand threads with fewer than 3 replies
+      const replyCounts = {}
+      data.forEach(c => { if (c.parent_id) replyCounts[c.parent_id] = (replyCounts[c.parent_id] || 0) + 1 })
+      const autoExpand = new Set(Object.entries(replyCounts).filter(([, n]) => n < 3).map(([id]) => id))
+      setExpandedReplies(autoExpand)
       setCommentsLoading(false)
     })
   }
@@ -3518,6 +3585,8 @@ export default function App() {
     setCommentSighting(null)
     setComments([])
     setCommentText('')
+    setReplyingTo(null)
+    setExpandedReplies(new Set())
   }
 
   async function handlePostComment() {
@@ -3528,11 +3597,17 @@ export default function App() {
       return
     }
     const handle = reporterHandle.trim() || session.user.user_metadata?.full_name || ('scout_' + getFingerprint().slice(-4))
+    const parentId = replyingTo?.id || null
     setCommentSubmitting(true)
-    const saved = await postComment(commentSighting.id, session.user.id, handle, commentText.trim())
+    const saved = await postComment(commentSighting.id, session.user.id, handle, commentText.trim(), parentId)
     if (saved) {
       setComments(prev => [...prev, saved])
       setCommentText('')
+      setReplyingTo(null)
+      // If this reply tips the thread to >= 3, keep it expanded since user just posted
+      if (parentId) {
+        setExpandedReplies(prev => new Set([...prev, parentId]))
+      }
       // Update comment count in feed
       setDbSightings(prev => (prev || []).map(s =>
         s.id === commentSighting.id ? { ...s, comment_count: (s.comment_count || 0) + 1 } : s
@@ -4917,73 +4992,144 @@ export default function App() {
       {/* ── COMMENTS SHEET ───────────────────────────────────────────── */}
       <div className={`event-form-overlay${commentSighting ? ' open' : ''}`} onClick={handleCloseComments} />
       <div className={`event-form-sheet${commentSighting ? ' open' : ''}`}>
-        {commentSighting && (
-          <>
-            <div className="sheet-header">
-              <div className="sheet-handle-wrap" style={{ padding: '12px 0 4px' }}>
-                <div className="sheet-handle" />
-              </div>
-              <div className="sheet-title">COMMENTS</div>
-              <div style={{ fontFamily: "'Courier Prime', monospace", fontSize: 11, color: 'var(--ghost)', padding: '0 20px 10px', letterSpacing: '0.06em' }}>
-                {commentSighting.store} · {commentSighting.city}
-              </div>
-            </div>
+        {commentSighting && (() => {
+          const relTime = ts => {
+            const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000)
+            if (mins < 1) return 'just now'
+            if (mins < 60) return `${mins}m ago`
+            const hrs = Math.floor(mins / 60)
+            if (hrs < 24) return `${hrs}h ago`
+            return `${Math.floor(hrs / 24)}d ago`
+          }
+          const topLevel = comments.filter(c => !c.parent_id)
+          const repliesFor = id => comments.filter(c => c.parent_id === id)
 
-            <div className="event-form-body" style={{ paddingBottom: session ? 80 : 20 }}>
-              {commentsLoading && (
-                <div className="comments-empty">Loading comments…</div>
-              )}
-              {!commentsLoading && comments.length === 0 && (
-                <div className="comments-empty">No comments yet — be the first!</div>
-              )}
-              {!commentsLoading && comments.map(c => (
-                <div key={c.id} className="comment-row">
-                  <div className="comment-header">
-                    <span className="comment-handle">@{c.handle}</span>
-                    <span className="comment-time">
-                      {(() => {
-                        const mins = Math.floor((Date.now() - new Date(c.created_at).getTime()) / 60000)
-                        if (mins < 1) return 'just now'
-                        if (mins < 60) return `${mins}m ago`
-                        const hrs = Math.floor(mins / 60)
-                        if (hrs < 24) return `${hrs}h ago`
-                        return `${Math.floor(hrs / 24)}d ago`
-                      })()}
-                    </span>
-                  </div>
-                  <div className="comment-body">{c.body}</div>
-                  {(canDeleteAny || c.user_id === session?.user?.id) && (
-                    <button className="comment-delete" onClick={() => handleDeleteComment(c.id, c.user_id)}>✕</button>
-                  )}
+          return (
+            <>
+              <div className="sheet-header">
+                <div className="sheet-handle-wrap" style={{ padding: '12px 0 4px' }}>
+                  <div className="sheet-handle" />
                 </div>
-              ))}
-            </div>
+                <div className="sheet-title">COMMENTS</div>
+                <div style={{ fontFamily: "'Courier Prime', monospace", fontSize: 11, color: 'var(--ghost)', padding: '0 20px 10px', letterSpacing: '0.06em' }}>
+                  {commentSighting.store} · {commentSighting.city}
+                </div>
+              </div>
 
-            {session ? (
-              <div className="comment-input-row">
-                <input
-                  className="comment-input"
-                  placeholder="Add a comment…"
-                  value={commentText}
-                  onChange={e => setCommentText(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handlePostComment()}
-                  maxLength={280}
-                />
-                <button
-                  className="comment-submit"
-                  onClick={handlePostComment}
-                  disabled={!commentText.trim() || commentSubmitting}
-                >
-                  {commentSubmitting ? '…' : 'POST'}
-                </button>
+              <div className="event-form-body" style={{ paddingBottom: session ? 80 : 20 }}>
+                {commentsLoading && <div className="comments-empty">Loading comments…</div>}
+                {!commentsLoading && topLevel.length === 0 && (
+                  <div className="comments-empty">No comments yet — be the first!</div>
+                )}
+                {!commentsLoading && topLevel.map(c => {
+                  const replies = repliesFor(c.id)
+                  const isExpanded = expandedReplies.has(c.id)
+                  const isReplying = replyingTo?.id === c.id
+
+                  return (
+                    <div key={c.id} className="comment-row">
+                      {/* Top-level comment */}
+                      <div className="comment-header">
+                        <span className="comment-handle">@{c.handle}</span>
+                        <span className="comment-time">{relTime(c.created_at)}</span>
+                      </div>
+                      <div className="comment-body">{c.body}</div>
+
+                      {/* Actions: Reply + Delete */}
+                      <div className="comment-actions">
+                        {session && (
+                          <button
+                            className="comment-reply-btn"
+                            onClick={() => setReplyingTo(isReplying ? null : { id: c.id, handle: c.handle })}
+                          >
+                            {isReplying ? 'CANCEL' : 'REPLY'}
+                          </button>
+                        )}
+                        {(canDeleteAny || c.user_id === session?.user?.id) && (
+                          <button className="comment-delete-inline" onClick={() => handleDeleteComment(c.id, c.user_id)}>✕</button>
+                        )}
+                      </div>
+
+                      {/* Inline reply input */}
+                      {isReplying && (
+                        <div className="reply-input-row">
+                          <input
+                            className="comment-input"
+                            placeholder={`Replying to @${c.handle}…`}
+                            value={commentText}
+                            onChange={e => setCommentText(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handlePostComment()}
+                            maxLength={280}
+                            autoFocus
+                          />
+                          <button
+                            className="comment-submit"
+                            onClick={handlePostComment}
+                            disabled={!commentText.trim() || commentSubmitting}
+                          >{commentSubmitting ? '…' : 'POST'}</button>
+                        </div>
+                      )}
+
+                      {/* Replies section */}
+                      {replies.length > 0 && (
+                        <div className="replies-section">
+                          <button
+                            className="replies-toggle"
+                            onClick={() => setExpandedReplies(prev => {
+                              const next = new Set(prev)
+                              next.has(c.id) ? next.delete(c.id) : next.add(c.id)
+                              return next
+                            })}
+                          >
+                            {isExpanded ? '▼' : '▶'} {replies.length} {replies.length === 1 ? 'REPLY' : 'REPLIES'}
+                          </button>
+
+                          {isExpanded && (
+                            <div className="replies-list">
+                              {replies.map(r => (
+                                <div key={r.id} className="reply-row">
+                                  <div className="comment-header">
+                                    <span className="comment-handle">@{r.handle}</span>
+                                    <span className="comment-time">{relTime(r.created_at)}</span>
+                                  </div>
+                                  <div className="comment-body">{r.body}</div>
+                                  {(canDeleteAny || r.user_id === session?.user?.id) && (
+                                    <button className="comment-delete-inline" onClick={() => handleDeleteComment(r.id, r.user_id)}>✕</button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
-            ) : (
-              <div className="comment-sign-in-prompt">
-                Sign in to leave a comment
-              </div>
-            )}
-          </>
-        )}
+
+              {/* Bottom input bar — top-level comments only */}
+              {session && !replyingTo ? (
+                <div className="comment-input-row">
+                  <input
+                    className="comment-input"
+                    placeholder="Add a comment…"
+                    value={commentText}
+                    onChange={e => setCommentText(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handlePostComment()}
+                    maxLength={280}
+                  />
+                  <button
+                    className="comment-submit"
+                    onClick={handlePostComment}
+                    disabled={!commentText.trim() || commentSubmitting}
+                  >{commentSubmitting ? '…' : 'POST'}</button>
+                </div>
+              ) : !session ? (
+                <div className="comment-sign-in-prompt">Sign in to leave a comment</div>
+              ) : null}
+            </>
+          )
+        })()}
       </div>
 
       {/* ── CREATE EVENT FORM SHEET ──────────────────────────────────── */}
