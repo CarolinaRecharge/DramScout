@@ -2718,8 +2718,38 @@ body {
   line-height: 1;
   transition: color 0.15s;
 }
-
+.profile-fav-remove.active { color: var(--urgent); }
 .profile-fav-remove:hover { color: var(--urgent); }
+
+.fav-store-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px 6px;
+  position: relative;
+}
+.fav-store-search-input {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--parchment);
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px;
+  padding: 8px 10px;
+  outline: none;
+}
+.fav-store-search-input:focus { border-color: var(--gold); }
+.fav-store-search-clear {
+  background: none;
+  border: none;
+  color: var(--ghost);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 6px;
+  line-height: 1;
+}
+.fav-store-search-clear:hover { color: var(--parchment); }
 
 /* Favorite star on sighting cards */
 .btn-favorite {
@@ -3164,6 +3194,7 @@ export default function App() {
   const [allUsers, setAllUsers] = useState(null)         // null = not loaded yet
   const [allUsersLoading, setAllUsersLoading] = useState(false)
   const [favorites, setFavorites] = useState(new Set())
+  const [favStoreSearch, setFavStoreSearch] = useState('')
   const [userSightings, setUserSightings] = useState([])
   const [deleteConfirm, setDeleteConfirm] = useState(null) // sighting id pending delete
   // Comments
@@ -5038,21 +5069,62 @@ export default function App() {
                 FAVORITE STORES
                 <span className="profile-section-count">{favorites.size}</span>
               </div>
-              {favorites.size === 0 ? (
-                <div className="profile-empty">No favorites yet — tap ★ on any sighting card to save a store</div>
-              ) : stores.filter(s => favorites.has(s.id)).map(store => (
-                <div key={store.id} className="profile-fav-store-row">
-                  <div style={{ flex: 1 }}>
-                    <div className="profile-fav-store-name">{store.name}</div>
-                    <div className="profile-fav-store-city">{store.city}, {store.state}</div>
+
+              {/* Store search */}
+              <div className="fav-store-search-wrap">
+                <input
+                  className="fav-store-search-input"
+                  placeholder="Search stores to favorite…"
+                  value={favStoreSearch}
+                  onChange={e => setFavStoreSearch(e.target.value)}
+                />
+                {favStoreSearch && (
+                  <button className="fav-store-search-clear" onClick={() => setFavStoreSearch('')}>✕</button>
+                )}
+              </div>
+
+              {/* Search results */}
+              {favStoreSearch.trim().length > 0 && (() => {
+                const q = favStoreSearch.toLowerCase()
+                const results = stores.filter(s =>
+                  s.name.toLowerCase().includes(q) ||
+                  s.city.toLowerCase().includes(q)
+                ).slice(0, 8)
+                return results.length === 0 ? (
+                  <div className="profile-empty">No stores match "{favStoreSearch}"</div>
+                ) : results.map(s => (
+                  <div key={s.id} className="profile-fav-store-row">
+                    <div style={{ flex: 1 }}>
+                      <div className="profile-fav-store-name">{s.name}</div>
+                      <div className="profile-fav-store-city">{s.city}, {s.state}</div>
+                    </div>
+                    <button
+                      className={`profile-fav-remove${favorites.has(s.id) ? ' active' : ''}`}
+                      onClick={() => handleToggleFavorite(s.id)}
+                      title={favorites.has(s.id) ? 'Remove favorite' : 'Add favorite'}
+                    >{favorites.has(s.id) ? '★' : '☆'}</button>
                   </div>
-                  <button
-                    className="profile-fav-remove"
-                    onClick={() => handleToggleFavorite(store.id)}
-                    title="Remove favorite"
-                  >★</button>
-                </div>
-              ))}
+                ))
+              })()}
+
+              {/* Current favorites list */}
+              {favStoreSearch.trim().length === 0 && (
+                favorites.size === 0 ? (
+                  <div className="profile-empty">No favorites yet — search above or tap ★ on any sighting card</div>
+                ) : stores.filter(s => favorites.has(s.id)).map(store => (
+                  <div key={store.id} className="profile-fav-store-row">
+                    <div style={{ flex: 1 }}>
+                      <div className="profile-fav-store-name">{store.name}</div>
+                      <div className="profile-fav-store-city">{store.city}, {store.state}</div>
+                    </div>
+                    <button
+                      className="profile-fav-remove active"
+                      onClick={() => handleToggleFavorite(store.id)}
+                      title="Remove favorite"
+                    >★</button>
+                  </div>
+                ))
+              )}
 
               {/* My Events */}
               <div className="profile-section-header" style={{ marginTop: 8 }}>
