@@ -2627,6 +2627,13 @@ body {
   font-style: italic;
   margin-top: 4px;
 }
+.notif-error {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: #E05C5C;
+  margin-top: 8px;
+  line-height: 1.5;
+}
 
 .profile-section-count {
   color: var(--ghost);
@@ -3165,6 +3172,7 @@ export default function App() {
   const [notifPrefs, setNotifPrefs] = useState({ enabled: false, radius_miles: 25, lat: null, lng: null })
   const [notifLoading, setNotifLoading] = useState(false)
   const [pushSupported, setPushSupported] = useState(false)
+  const [notifError, setNotifError] = useState('')
   // Event type filter
   const [evtTypeFilter, setEvtTypeFilter] = useState('all')
   // Event creation form
@@ -3678,23 +3686,24 @@ export default function App() {
 
   async function subscribeToPush() {
     if (!pushSupported || !session?.user) return null
-    try {
-      const reg = await navigator.serviceWorker.register('/sw.js')
-      const existing = await reg.pushManager.getSubscription()
-      const sub = existing || await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
-      })
-      await savePushSubscription(session.user.id, {
-        endpoint: sub.endpoint,
-        p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))),
-        auth:   btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))),
-      })
-      return sub
-    } catch (err) {
-      console.warn('subscribeToPush:', err)
-      return null
+    if (!import.meta.env.VITE_VAPID_PUBLIC_KEY) {
+      throw new Error('Push notifications are not configured yet. VITE_VAPID_PUBLIC_KEY must be set in your environment variables and the app redeployed.')
     }
+    if (Notification.permission === 'denied') {
+      throw new Error('Notification permission is blocked in your browser. Open your browser site settings and allow notifications for this site, then try again.')
+    }
+    const reg = await navigator.serviceWorker.register('/sw.js')
+    const existing = await reg.pushManager.getSubscription()
+    const sub = existing || await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
+    })
+    await savePushSubscription(session.user.id, {
+      endpoint: sub.endpoint,
+      p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))),
+      auth:   btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))),
+    })
+    return sub
   }
 
   async function unsubscribeFromPush() {
@@ -3714,9 +3723,16 @@ export default function App() {
   async function handleToggleNotifications(enabled) {
     if (!session?.user) return
     setNotifLoading(true)
+    setNotifError('')
     if (enabled) {
-      const sub = await subscribeToPush()
-      if (!sub) { setNotifLoading(false); return }
+      try {
+        const sub = await subscribeToPush()
+        if (!sub) { setNotifLoading(false); return }
+      } catch (err) {
+        setNotifError(err.message || 'Could not enable notifications. Check the browser console for details.')
+        setNotifLoading(false)
+        return
+      }
     } else {
       await unsubscribeFromPush()
     }
@@ -4897,6 +4913,7 @@ export default function App() {
                         {notifLoading ? 'Updating…' : 'Enable push notifications'}
                       </span>
                     </label>
+                    {notifError && <div className="notif-error">{notifError}</div>}
                   </div>
 
                   {notifPrefs.enabled && (
