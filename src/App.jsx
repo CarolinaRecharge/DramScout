@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { Filter } from 'bad-words'
 import {
   supabase, getFingerprint,
   fetchStores, fetchSightings, fetchEvents,
@@ -2712,6 +2713,12 @@ function getCountdown(date) {
   return `in ${Math.round(hrs / 24)}d`
 }
 
+// ── Profanity filter ──────────────────────────────────────────────────────
+const profanityFilter = new Filter()
+function containsProfanity(...fields) {
+  return fields.some(f => f && profanityFilter.isProfane(f))
+}
+
 const BOURBON_CATALOG = [
   { brand: "Blanton's", bottles: ["Blanton's Original Single Barrel","Blanton's Gold Edition","Blanton's Straight from the Barrel","Blanton's Special Reserve"] },
   { brand: "Weller", bottles: ["Weller Special Reserve","Weller Antique 107","Weller 12 Year","Weller Full Proof","Weller Single Barrel"] },
@@ -3396,6 +3403,11 @@ export default function App() {
     }
     if (!evtName.trim() || !evtStoreName.trim() || !evtCity.trim() || !evtDate) return
 
+    if (containsProfanity(evtName, evtRulesNotes, evtParking, evtOvernight, evtIdReq, evtLimit, evtOtherBottle)) {
+      alert('Your event contains language that isn\'t allowed. Please review your text fields and try again.')
+      return
+    }
+
     const payload = {
       name: evtName.trim(),
       store: evtStoreName.trim(),
@@ -3495,6 +3507,11 @@ export default function App() {
       bottleList = [evtOtherBottle.trim()]
     }
     if (!evtName.trim() || !evtStoreName.trim() || !evtCity.trim() || !evtDate) return
+
+    if (containsProfanity(evtName, evtRulesNotes, evtParking, evtOvernight, evtIdReq, evtLimit, evtOtherBottle)) {
+      alert('Your event contains language that isn\'t allowed. Please review your text fields and try again.')
+      return
+    }
 
     const payload = {
       name: evtName.trim(),
@@ -3685,6 +3702,11 @@ export default function App() {
     }
 
     if (!bottleList.length || !storeName.trim()) return
+
+    if (containsProfanity(notes, reporterHandle, otherBottle, storeName, cityName)) {
+      alert('Your post contains language that isn\'t allowed. Please review your notes, handle, or bottle name and try again.')
+      return
+    }
 
     const fp = getFingerprint()
     const handle = reporterHandle.trim() || ('scout_' + fp.slice(-4))
