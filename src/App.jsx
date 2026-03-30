@@ -3693,9 +3693,13 @@ export default function App() {
     if (Notification.permission === 'denied') {
       throw new Error('Notification permission is blocked in your browser. Open your browser site settings and allow notifications for this site, then try again.')
     }
-    const reg = await navigator.serviceWorker.register('/sw.js')
-    // Wait for the service worker to be ready before subscribing
-    await navigator.serviceWorker.ready
+    // register() returns immediately even while SW is installing;
+    // navigator.serviceWorker.ready resolves only once a SW is active.
+    // We must use the ready registration for pushManager.subscribe() —
+    // using the register() result directly causes "push service error"
+    // when reg.active is still null.
+    await navigator.serviceWorker.register('/sw.js')
+    const reg = await navigator.serviceWorker.ready
     const existing = await reg.pushManager.getSubscription()
     if (existing) {
       await existing.unsubscribe()
