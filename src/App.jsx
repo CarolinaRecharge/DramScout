@@ -111,9 +111,10 @@ body {
   gap: 8px;
 }
 
-.header-emoji {
-  font-size: 20px;
-  line-height: 1;
+.header-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
 }
 
 .header-title {
@@ -4375,7 +4376,7 @@ export default function App() {
       {/* ── HEADER ──────────────────────────────────────────────────── */}
       <header className="header">
         <div className="header-brand">
-          <span className="header-emoji">🥃</span>
+          <img src="/icon-192.png" className="header-logo" alt="" />
           <span className="header-title">DRAM SCOUT</span>
         </div>
         {session ? (
