@@ -464,3 +464,147 @@ export async function deleteEventAdmin(eventId) {
   if (error) return { ok: false, error: error.message }
   return { ok: true }
 }
+
+// ── Forum ─────────────────────────────────────────────────────────────────────
+
+export async function fetchForumCategories() {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('forum_categories')
+    .select('*')
+    .order('sort_order')
+  if (error) { console.warn('fetchForumCategories:', error.message); return [] }
+  return data || []
+}
+
+export async function fetchForumThreads(categoryId) {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('forum_threads')
+    .select('*')
+    .eq('category_id', categoryId)
+    .order('pinned', { ascending: false })
+    .order('last_post_at', { ascending: false })
+  if (error) { console.warn('fetchForumThreads:', error.message); return [] }
+  return data || []
+}
+
+export async function fetchForumPosts(threadId, page = 0, pageSize = 20) {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('forum_posts')
+    .select('*')
+    .eq('thread_id', threadId)
+    .order('created_at', { ascending: true })
+    .range(page * pageSize, page * pageSize + pageSize - 1)
+  if (error) { console.warn('fetchForumPosts:', error.message); return [] }
+  return data || []
+}
+
+export async function fetchForumReactions(postIds) {
+  if (!supabase || !postIds?.length) return []
+  const { data, error } = await supabase
+    .from('forum_reactions')
+    .select('*')
+    .in('post_id', postIds)
+  if (error) { console.warn('fetchForumReactions:', error.message); return [] }
+  return data || []
+}
+
+export async function postForumThread(categoryId, userId, handle, title, body) {
+  if (!supabase) return null
+  const { data, error } = await supabase
+    .from('forum_threads')
+    .insert({ category_id: categoryId, user_id: userId, handle, title, body })
+    .select()
+    .single()
+  if (error) { console.warn('postForumThread:', error.message); return null }
+  return data
+}
+
+export async function postForumPost(threadId, userId, handle, body) {
+  if (!supabase) return null
+  const { data, error } = await supabase
+    .from('forum_posts')
+    .insert({ thread_id: threadId, user_id: userId, handle, body })
+    .select()
+    .single()
+  if (error) { console.warn('postForumPost:', error.message); return null }
+  return data
+}
+
+export async function deleteForumPost(postId, userId) {
+  if (!supabase) return false
+  const { error } = await supabase
+    .from('forum_posts')
+    .delete()
+    .eq('id', postId)
+    .eq('user_id', userId)
+  if (error) { console.warn('deleteForumPost:', error.message); return false }
+  return true
+}
+
+export async function deleteForumPostAdmin(postId) {
+  if (!supabase) return false
+  const { error } = await supabase
+    .from('forum_posts')
+    .delete()
+    .eq('id', postId)
+  if (error) { console.warn('deleteForumPostAdmin:', error.message); return false }
+  return true
+}
+
+export async function deleteForumThread(threadId, userId) {
+  if (!supabase) return false
+  const { error } = await supabase
+    .from('forum_threads')
+    .delete()
+    .eq('id', threadId)
+    .eq('user_id', userId)
+  if (error) { console.warn('deleteForumThread:', error.message); return false }
+  return true
+}
+
+export async function deleteForumThreadAdmin(threadId) {
+  if (!supabase) return false
+  const { error } = await supabase
+    .from('forum_threads')
+    .delete()
+    .eq('id', threadId)
+  if (error) { console.warn('deleteForumThreadAdmin:', error.message); return false }
+  return true
+}
+
+export async function toggleForumReaction(postId, userId, emoji) {
+  if (!supabase) return false
+  const { data: existing } = await supabase
+    .from('forum_reactions')
+    .select('id')
+    .eq('post_id', postId)
+    .eq('user_id', userId)
+    .eq('emoji', emoji)
+    .maybeSingle()
+  if (existing) {
+    const { error } = await supabase
+      .from('forum_reactions')
+      .delete()
+      .eq('id', existing.id)
+    return !error
+  } else {
+    const { error } = await supabase
+      .from('forum_reactions')
+      .insert({ post_id: postId, user_id: userId, emoji })
+    return !error
+  }
+}
+
+export function subscribeToForumPosts(threadId, onInsert) {
+  if (!supabase) return null
+  return supabase
+    .channel(`forum-${threadId}`)
+    .on('postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'forum_posts', filter: `thread_id=eq.${threadId}` },
+      payload => onInsert(payload.new)
+    )
+    .subscribe()
+}

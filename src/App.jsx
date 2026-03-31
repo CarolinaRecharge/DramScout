@@ -14,6 +14,11 @@ import {
   deleteSightingAdmin, deleteEventAdmin,
   fetchComments, postComment, deleteComment, deleteCommentAdmin,
   fetchNotificationPrefs, upsertNotificationPrefs, savePushSubscription, deletePushSubscription,
+  fetchForumCategories, fetchForumThreads, fetchForumPosts,
+  fetchForumReactions, postForumThread, postForumPost,
+  deleteForumPost, deleteForumPostAdmin,
+  deleteForumThread, deleteForumThreadAdmin,
+  toggleForumReaction, subscribeToForumPosts,
 } from './supabase'
 
 const ADMIN_EMAIL = 'danielk.black95@gmail.com'
@@ -2966,6 +2971,342 @@ body {
     transform: translateX(0) translateY(0);
   }
 }
+
+/* ─── FORUM VIEW ────────────────────────────────────────────────────────────── */
+.forum-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 80px;
+  overflow-y: auto;
+}
+
+.forum-header {
+  display: flex;
+  align-items: center;
+  padding: 18px 16px 12px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.forum-header-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--gold-light);
+}
+
+.forum-subheader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--card);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.forum-back-btn {
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px 2px 2px;
+  flex-shrink: 0;
+}
+
+.forum-subheader-title {
+  flex: 1;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--paper);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.forum-subheader-thread-title {
+  font-size: 14px;
+}
+
+.forum-new-btn {
+  background: var(--gold);
+  color: var(--ink);
+  border: none;
+  border-radius: 6px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.forum-new-btn:hover { background: var(--gold-light); }
+
+.forum-category-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.forum-category-card:hover { background: var(--card); }
+.forum-category-card:active { background: var(--card-2); }
+
+.forum-category-icon {
+  font-size: 22px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--gold-glow);
+  border: 1px solid var(--worn);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.forum-category-info { flex: 1; min-width: 0; }
+
+.forum-category-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--paper);
+  letter-spacing: 0.04em;
+}
+
+.forum-category-desc {
+  font-size: 11px;
+  color: var(--ghost);
+  margin-top: 2px;
+  letter-spacing: 0.04em;
+}
+
+.forum-category-meta {
+  font-size: 10px;
+  color: var(--worn);
+  margin-top: 3px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.forum-category-chevron {
+  color: var(--worn);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.forum-thread-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.forum-thread-row:hover { background: var(--card); }
+.forum-thread-row:active { background: var(--card-2); }
+
+.forum-thread-row.forum-thread-pinned {
+  background: rgba(193,125,14,0.06);
+  border-left: 2px solid var(--gold);
+}
+
+.forum-thread-row-main { flex: 1; min-width: 0; }
+
+.forum-thread-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--paper);
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.forum-pin { font-size: 13px; }
+
+.forum-thread-meta {
+  font-size: 10px;
+  color: var(--ghost);
+  margin-top: 3px;
+  letter-spacing: 0.05em;
+}
+
+.forum-post-card {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  margin: 10px 12px;
+  padding: 12px 14px;
+}
+
+.forum-post-op {
+  border-left: 3px solid var(--gold);
+  background: var(--card-2);
+}
+
+.forum-post-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.forum-post-handle {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold-light);
+  letter-spacing: 0.06em;
+}
+
+.forum-post-time {
+  font-size: 10px;
+  color: var(--ghost);
+  letter-spacing: 0.05em;
+  flex: 1;
+}
+
+.forum-delete-btn {
+  background: none;
+  border: none;
+  color: var(--ghost);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.forum-delete-btn:hover { color: var(--urgent); background: rgba(122,46,46,0.15); }
+
+.forum-post-body {
+  font-size: 13px;
+  color: var(--parchment);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.forum-reactions-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.forum-reaction-btn {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--card-2);
+  border: 1px solid var(--rule);
+  border-radius: 20px;
+  padding: 3px 9px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s;
+  color: var(--paper);
+}
+
+.forum-reaction-btn:hover:not(:disabled) {
+  border-color: var(--worn);
+  background: var(--worn);
+}
+
+.forum-reaction-btn.mine {
+  background: var(--gold-glow);
+  border-color: var(--gold);
+}
+
+.forum-reaction-btn:disabled { opacity: 0.5; cursor: default; }
+
+.forum-reaction-count {
+  font-size: 11px;
+  font-family: 'Courier Prime', monospace;
+  color: var(--ghost);
+}
+
+.forum-reaction-btn.mine .forum-reaction-count { color: var(--gold-light); }
+
+.forum-load-more {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 6px 12px 16px;
+  padding: 10px;
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  text-align: center;
+}
+
+.forum-load-more:hover { border-color: var(--worn); color: var(--parchment); }
+
+.forum-empty {
+  padding: 32px 20px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ghost);
+  letter-spacing: 0.08em;
+}
+
+.forum-composer-title {
+  width: 100%;
+}
+
+.forum-composer-body {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--worn);
+  border-radius: 8px;
+  color: var(--paper);
+  font-family: 'Courier Prime', monospace;
+  font-size: 13px;
+  padding: 10px 12px;
+  resize: none;
+  line-height: 1.5;
+}
+
+.forum-composer-body:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.forum-composer-error {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(122,46,46,0.2);
+  border: 1px solid var(--urgent);
+  border-radius: 6px;
+  font-size: 11px;
+  color: #e07070;
+  letter-spacing: 0.04em;
+}
 `
 
 function getEventStatus(date) {
@@ -3247,6 +3588,25 @@ export default function App() {
   const [selectedStore, setSelectedStore] = useState(null)
   const [showStorePicker, setShowStorePicker] = useState(false)
 
+  // Forum
+  const [forumView, setForumView]                   = useState('categories')
+  const [forumCategories, setForumCategories]       = useState([])
+  const [forumActiveCategory, setForumActiveCategory] = useState(null)
+  const [forumThreads, setForumThreads]             = useState([])
+  const [forumThreadsLoading, setForumThreadsLoading] = useState(false)
+  const [forumActiveThread, setForumActiveThread]   = useState(null)
+  const [forumPosts, setForumPosts]                 = useState([])
+  const [forumPostsLoading, setForumPostsLoading]   = useState(false)
+  const [forumPage, setForumPage]                   = useState(0)
+  const [forumHasMore, setForumHasMore]             = useState(false)
+  const [forumReactions, setForumReactions]         = useState([])
+  const [forumComposerOpen, setForumComposerOpen]   = useState(false)
+  const [forumComposerMode, setForumComposerMode]   = useState('thread')
+  const [forumDraftTitle, setForumDraftTitle]       = useState('')
+  const [forumDraftBody, setForumDraftBody]         = useState('')
+  const [forumSubmitting, setForumSubmitting]       = useState(false)
+  const [forumError, setForumError]                 = useState('')
+
   const mapContainerRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const markersRef = useRef([])
@@ -3254,6 +3614,7 @@ export default function App() {
   const leafletLoadedRef = useRef(false)
   const toastTimerRef = useRef(null)
   const realtimeChannelRef = useRef(null)
+  const forumChannelRef = useRef(null)
   const sheetRef = useRef(null)
   const sheetBodyRef = useRef(null)
   const dragStartY = useRef(null)
@@ -3361,6 +3722,19 @@ export default function App() {
     if (activeTab === 'scout' && mapInstanceRef.current) {
       mapInstanceRef.current.invalidateSize()
       mapInstanceRef.current.dragging.enable()
+    }
+  }, [activeTab])
+
+  // ── Load forum categories once on mount ───────────────────────────────
+  useEffect(() => {
+    fetchForumCategories().then(setForumCategories)
+  }, [])
+
+  // ── Unsubscribe from forum realtime when leaving forum tab ────────────
+  useEffect(() => {
+    if (activeTab !== 'forum') {
+      forumChannelRef.current?.unsubscribe()
+      forumChannelRef.current = null
     }
   }, [activeTab])
 
@@ -3902,6 +4276,154 @@ export default function App() {
     }
   }
 
+  // ── Forum helpers ─────────────────────────────────────────────────────
+  function forumRelTime(ts) {
+    const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000)
+    if (mins < 1) return 'just now'
+    if (mins < 60) return `${mins}m ago`
+    const hrs = Math.floor(mins / 60)
+    if (hrs < 24) return `${hrs}h ago`
+    return `${Math.floor(hrs / 24)}d ago`
+  }
+
+  function forumReactionCounts(postId) {
+    const counts = {}
+    forumReactions.filter(r => r.post_id === postId).forEach(r => {
+      counts[r.emoji] = (counts[r.emoji] || 0) + 1
+    })
+    return counts
+  }
+
+  function forumHasReacted(postId, emoji) {
+    return forumReactions.some(r => r.post_id === postId && r.user_id === session?.user?.id && r.emoji === emoji)
+  }
+
+  // ── Forum handlers ────────────────────────────────────────────────────
+  async function handleEnterCategory(cat) {
+    setForumActiveCategory(cat)
+    setForumView('threads')
+    setForumThreadsLoading(true)
+    setForumThreads(await fetchForumThreads(cat.id))
+    setForumThreadsLoading(false)
+  }
+
+  async function handleEnterThread(thread) {
+    setForumActiveThread(thread)
+    setForumView('thread')
+    setForumPostsLoading(true)
+    setForumPage(0)
+    const PAGE_SIZE = 20
+    const posts = await fetchForumPosts(thread.id, 0, PAGE_SIZE)
+    setForumPosts(posts)
+    setForumHasMore(posts.length === PAGE_SIZE)
+    if (posts.length) {
+      const reactions = await fetchForumReactions(posts.map(p => p.id))
+      setForumReactions(reactions)
+    }
+    setForumPostsLoading(false)
+    forumChannelRef.current?.unsubscribe()
+    forumChannelRef.current = subscribeToForumPosts(thread.id, newPost => {
+      setForumPosts(prev => [...prev, newPost])
+      fetchForumReactions([newPost.id]).then(r => setForumReactions(prev => [...prev, ...r]))
+    })
+  }
+
+  function handleForumBack() {
+    if (forumView === 'thread') {
+      forumChannelRef.current?.unsubscribe()
+      forumChannelRef.current = null
+      setForumView('threads')
+      setForumPosts([])
+      setForumReactions([])
+      setForumActiveThread(null)
+    } else {
+      setForumView('categories')
+      setForumThreads([])
+      setForumActiveCategory(null)
+    }
+  }
+
+  async function handleLoadMorePosts() {
+    const PAGE_SIZE = 20
+    const nextPage = forumPage + 1
+    const more = await fetchForumPosts(forumActiveThread.id, nextPage, PAGE_SIZE)
+    setForumPosts(prev => [...prev, ...more])
+    setForumHasMore(more.length === PAGE_SIZE)
+    setForumPage(nextPage)
+    if (more.length) {
+      const r = await fetchForumReactions(more.map(p => p.id))
+      setForumReactions(prev => [...prev, ...r])
+    }
+  }
+
+  function handleOpenForumComposer(mode) {
+    setForumComposerMode(mode)
+    setForumDraftTitle('')
+    setForumDraftBody('')
+    setForumError('')
+    setForumComposerOpen(true)
+  }
+
+  function handleCloseForumComposer() {
+    setForumComposerOpen(false)
+  }
+
+  async function handleSubmitForum() {
+    const title = forumDraftTitle.trim()
+    const body  = forumDraftBody.trim()
+    if (forumComposerMode === 'thread' && !title) { setForumError('Thread title is required.'); return }
+    if (!body) { setForumError('Post body is required.'); return }
+    const badWords = getProfaneWords(title, body)
+    if (badWords.length) { setForumError(`Please remove: ${badWords.join(', ')}`); return }
+    setForumSubmitting(true)
+    setForumError('')
+    const handle = reporterHandle || session.user.email.split('@')[0]
+    if (forumComposerMode === 'thread') {
+      const thread = await postForumThread(forumActiveCategory.id, session.user.id, handle, title, body)
+      if (thread) {
+        setForumThreads(prev => [thread, ...prev])
+        handleCloseForumComposer()
+      } else {
+        setForumError('Could not post thread. Please try again.')
+      }
+    } else {
+      const post = await postForumPost(forumActiveThread.id, session.user.id, handle, body)
+      if (post) {
+        setForumPosts(prev => [...prev, post])
+        setForumActiveThread(prev => ({ ...prev, post_count: (prev.post_count || 0) + 1 }))
+        handleCloseForumComposer()
+      } else {
+        setForumError('Could not post reply. Please try again.')
+      }
+    }
+    setForumSubmitting(false)
+  }
+
+  async function handleDeleteForumPost(postId, postUserId) {
+    const ok = isAdmin
+      ? await deleteForumPostAdmin(postId)
+      : await deleteForumPost(postId, postUserId)
+    if (ok) setForumPosts(prev => prev.filter(p => p.id !== postId))
+  }
+
+  async function handleDeleteForumThread(threadId, threadUserId) {
+    const ok = isAdmin
+      ? await deleteForumThreadAdmin(threadId)
+      : await deleteForumThread(threadId, threadUserId)
+    if (ok) setForumThreads(prev => prev.filter(t => t.id !== threadId))
+  }
+
+  async function handleToggleReaction(postId, emoji) {
+    if (!session?.user) return
+    const already = forumReactions.some(r => r.post_id === postId && r.user_id === session.user.id && r.emoji === emoji)
+    if (already) {
+      setForumReactions(prev => prev.filter(r => !(r.post_id === postId && r.user_id === session.user.id && r.emoji === emoji)))
+    } else {
+      setForumReactions(prev => [...prev, { post_id: postId, user_id: session.user.id, emoji }])
+    }
+    await toggleForumReaction(postId, session.user.id, emoji)
+  }
+
   // ── Event bottle helper ────────────────────────────────────────────────
   function handleAddEvtBottle() {
     let name = ''
@@ -4425,6 +4947,12 @@ export default function App() {
           onClick={() => setActiveTab('profile')}
         >
           <span className="tab-btn-icon">👤</span> PROFILE
+        </button>
+        <button
+          className={`tab-btn${activeTab === 'forum' ? ' active' : ''}`}
+          onClick={() => setActiveTab('forum')}
+        >
+          <span className="tab-btn-icon">💬</span> FORUM
         </button>
       </nav>
 
@@ -5151,6 +5679,196 @@ export default function App() {
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── FORUM VIEW ──────────────────────────────────────────────── */}
+      {activeTab === 'forum' && (
+        <div className="forum-view">
+
+          {/* ── CATEGORIES ─────────────────────────────────────────── */}
+          {forumView === 'categories' && (
+            <>
+              <div className="forum-header">
+                <span className="forum-header-title">COMMUNITY FORUM</span>
+              </div>
+              {forumCategories.length === 0 && (
+                <div className="forum-empty">Loading categories…</div>
+              )}
+              {forumCategories.map(cat => (
+                <button key={cat.id} className="forum-category-card" onClick={() => handleEnterCategory(cat)}>
+                  <span className="forum-category-icon">{cat.icon}</span>
+                  <div className="forum-category-info">
+                    <div className="forum-category-name">{cat.name}</div>
+                    {cat.description && <div className="forum-category-desc">{cat.description}</div>}
+                    <div className="forum-category-meta">
+                      {cat.thread_count} thread{cat.thread_count !== 1 ? 's' : ''}
+                      {cat.last_post_at ? ` · ${forumRelTime(cat.last_post_at)}` : ''}
+                    </div>
+                  </div>
+                  <span className="forum-category-chevron">›</span>
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* ── THREADS ─────────────────────────────────────────────── */}
+          {forumView === 'threads' && (
+            <>
+              <div className="forum-subheader">
+                <button className="forum-back-btn" onClick={handleForumBack}>‹</button>
+                <span className="forum-subheader-title">{forumActiveCategory?.name}</span>
+                {session && (
+                  <button className="forum-new-btn" onClick={() => handleOpenForumComposer('thread')}>+ NEW</button>
+                )}
+              </div>
+              {forumThreadsLoading && <div className="forum-empty">Loading…</div>}
+              {!forumThreadsLoading && forumThreads.length === 0 && (
+                <div className="forum-empty">No threads yet — be the first to post!</div>
+              )}
+              {!forumThreadsLoading && forumThreads.map(thread => (
+                <div
+                  key={thread.id}
+                  className={`forum-thread-row${thread.pinned ? ' forum-thread-pinned' : ''}`}
+                  onClick={() => handleEnterThread(thread)}
+                >
+                  <div className="forum-thread-row-main">
+                    <div className="forum-thread-title">
+                      {thread.pinned && <span className="forum-pin">📌 </span>}
+                      {thread.title}
+                    </div>
+                    <div className="forum-thread-meta">
+                      @{thread.handle} · {thread.post_count} repl{thread.post_count !== 1 ? 'ies' : 'y'} · {forumRelTime(thread.last_post_at)}
+                    </div>
+                  </div>
+                  {(session?.user?.id === thread.user_id || isAdmin) && (
+                    <button
+                      className="forum-delete-btn"
+                      onClick={e => { e.stopPropagation(); handleDeleteForumThread(thread.id, thread.user_id) }}
+                    >✕</button>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* ── THREAD VIEW ─────────────────────────────────────────── */}
+          {forumView === 'thread' && forumActiveThread && (
+            <>
+              <div className="forum-subheader">
+                <button className="forum-back-btn" onClick={handleForumBack}>‹</button>
+                <span className="forum-subheader-title forum-subheader-thread-title">{forumActiveThread.title}</span>
+                {session && (
+                  <button className="forum-new-btn" onClick={() => handleOpenForumComposer('reply')}>REPLY</button>
+                )}
+              </div>
+
+              {/* Original post */}
+              <div className="forum-post-card forum-post-op">
+                <div className="forum-post-header">
+                  <span className="forum-post-handle">@{forumActiveThread.handle}</span>
+                  <span className="forum-post-time">{forumRelTime(forumActiveThread.created_at)}</span>
+                </div>
+                <div className="forum-post-body">{forumActiveThread.body}</div>
+              </div>
+
+              {forumPostsLoading && <div className="forum-empty">Loading replies…</div>}
+
+              {!forumPostsLoading && forumPosts.length === 0 && (
+                <div className="forum-empty">No replies yet.</div>
+              )}
+
+              {forumPosts.map(post => {
+                const counts = forumReactionCounts(post.id)
+                return (
+                  <div key={post.id} className="forum-post-card">
+                    <div className="forum-post-header">
+                      <span className="forum-post-handle">@{post.handle}</span>
+                      <span className="forum-post-time">{forumRelTime(post.created_at)}</span>
+                      {(session?.user?.id === post.user_id || isAdmin) && (
+                        <button
+                          className="forum-delete-btn"
+                          onClick={() => handleDeleteForumPost(post.id, post.user_id)}
+                        >✕</button>
+                      )}
+                    </div>
+                    <div className="forum-post-body">{post.body}</div>
+                    <div className="forum-reactions-row">
+                      {['👍', '🥃', '🔥'].map(emoji => (
+                        <button
+                          key={emoji}
+                          className={`forum-reaction-btn${forumHasReacted(post.id, emoji) ? ' mine' : ''}`}
+                          onClick={() => handleToggleReaction(post.id, emoji)}
+                          disabled={!session}
+                        >
+                          {emoji} {counts[emoji] ? <span className="forum-reaction-count">{counts[emoji]}</span> : null}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+
+              {forumHasMore && (
+                <button className="forum-load-more" onClick={handleLoadMorePosts}>
+                  Load more replies…
+                </button>
+              )}
+            </>
+          )}
+
+          {/* ── COMPOSER SHEET ──────────────────────────────────────── */}
+          <div className={`event-form-overlay${forumComposerOpen ? ' open' : ''}`} onClick={handleCloseForumComposer} />
+          <div className={`event-form-sheet${forumComposerOpen ? ' open' : ''}`}>
+            {forumComposerOpen && (
+              <>
+                <div className="sheet-header">
+                  <div className="sheet-handle-wrap" style={{ padding: '12px 0 4px' }}>
+                    <div className="sheet-handle" />
+                  </div>
+                  <div className="sheet-title">
+                    {forumComposerMode === 'thread' ? 'NEW THREAD' : 'NEW REPLY'}
+                  </div>
+                </div>
+                <div className="event-form-body">
+                  {forumComposerMode === 'thread' && (
+                    <div className="evt-field">
+                      <label className="evt-label">TITLE</label>
+                      <input
+                        className="forum-composer-title evt-input"
+                        placeholder="Thread title…"
+                        value={forumDraftTitle}
+                        onChange={e => setForumDraftTitle(e.target.value.slice(0, 140))}
+                        autoFocus
+                      />
+                    </div>
+                  )}
+                  <div className="evt-field">
+                    <label className="evt-label">{forumComposerMode === 'thread' ? 'BODY' : 'REPLY'}</label>
+                    <textarea
+                      className="forum-composer-body"
+                      placeholder="Write something…"
+                      rows={5}
+                      value={forumDraftBody}
+                      onChange={e => setForumDraftBody(e.target.value.slice(0, 2000))}
+                    />
+                  </div>
+                  {forumError && <div className="forum-composer-error">{forumError}</div>}
+                </div>
+                <div className="event-form-footer">
+                  <button className="btn-evt-cancel" onClick={handleCloseForumComposer}>CANCEL</button>
+                  <button
+                    className="btn-evt-submit forum-composer-submit"
+                    onClick={handleSubmitForum}
+                    disabled={forumSubmitting}
+                  >
+                    {forumSubmitting ? 'POSTING…' : 'POST'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
         </div>
       )}
 
