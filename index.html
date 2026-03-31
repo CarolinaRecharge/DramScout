@@ -7,6 +7,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <title>Dram Scout</title>
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600;1,700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
@@ -22,7 +25,8 @@
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         gap: 16px; background: #0E0B08; z-index: 9999;
       }
-      #app-loading .logo { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 700; color: #DCA030; letter-spacing: 0.06em; }
+      #app-loading .logo { display: flex; align-items: center; justify-content: center; }
+      #app-loading .logo-text { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 700; color: #DCA030; letter-spacing: 0.06em; }
       #app-loading .sub  { font-size: 11px; color: #7A6845; letter-spacing: 0.12em; }
       @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
       #app-loading .dot  { width: 6px; height: 6px; border-radius: 50%; background: #C17D0E; animation: pulse 1.4s ease-in-out infinite; }
@@ -31,7 +35,8 @@
   <body>
     <!-- Shown until React mounts; React removes it on first render -->
     <div id="app-loading">
-      <div class="logo">🥃 DRAM SCOUT</div>
+      <div class="logo"><img src="/icon-192.png" alt="Dram Scout" width="80" height="80" style="border-radius:18px" /></div>
+      <div class="logo-text">DRAM SCOUT</div>
       <div class="dot"></div>
       <div class="sub">LOADING</div>
     </div>
