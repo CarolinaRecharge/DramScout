@@ -159,46 +159,86 @@ Deno.serve(async (req: Request) => {
     )
   }
 
-  // ── Mode 3: batch — fix all stores missing geocoded_at ────────────────────
+  // ── Mode 3: batch — geocode all stores (or a county subset) ─────────────
   if (body.all_ungeocoded) {
-    const { data: stores, error: fetchErr } = await db
+    // Fetch all stores — don't filter on geocoded_at since that column may not
+    // exist yet if migration 002 hasn't been run. We re-geocode everything and
+    // only write to the DB when drift exceeds the threshold.
+    const county = typeof body.county === 'string' ? body.county : null
+
+    let query = db
       .from('stores')
       .select('id, name, address, city, state, lat, lng')
-      .is('geocoded_at', null)
+
+    if (county) query = query.eq('county', county)
+
+    const { data: stores, error: fetchErr } = await query
 
     if (fetchErr) {
-      return new Response(JSON.stringify({ error: fetchErr.message }), { status: 500 })
+      return new Response(
+        JSON.stringify({ error: `Failed to fetch stores: ${fetchErr.message}` }),
+        { status: 500 }
+      )
     }
 
     if (!stores?.length) {
-      return new Response(JSON.stringify({ updated: 0, message: 'All stores already geocoded' }), {
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return new Response(
+        JSON.stringify({ updated: 0, message: 'No stores found' }),
+        { headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     let updatedCount = 0
+    let skippedCount = 0
     const failed: string[] = []
 
     for (const store of stores) {
+      let result: GeoResult | null = null
+
       try {
-        const result = await nominatimGeocode(store.address, store.city, store.state)
-        if (!result) {
-          failed.push(`${store.name}: not found`)
-          await sleep(1100)
-          continue
-        }
-
-        const d = maxDrift({ lat: store.lat, lng: store.lng }, result)
-        const payload: Record<string, unknown> = { geocoded_at: new Date().toISOString() }
-        if (d > DRIFT_THRESHOLD) {
-          payload.lat = result.lat
-          payload.lng = result.lng
-          updatedCount++
-        }
-
-        await db.from('stores').update(payload).eq('id', store.id)
+        result = await nominatimGeocode(store.address, store.city, store.state)
       } catch (err) {
-        failed.push(`${store.name}: ${(err as Error).message}`)
+        failed.push(`${store.name}: geocode error — ${err instanceof Error ? err.message : String(err)}`)
+        await sleep(1100)
+        continue
+      }
+
+      if (!result) {
+        failed.push(`${store.name}: not found by Nominatim`)
+        await sleep(1100)
+        continue
+      }
+
+      const d = maxDrift({ lat: store.lat, lng: store.lng }, result)
+
+      if (d > DRIFT_THRESHOLD) {
+        // Build update payload — include geocoded_at only if the column exists
+        // (migration 002). If it doesn't, the update still succeeds for lat/lng.
+        const payload: Record<string, unknown> = { lat: result.lat, lng: result.lng }
+        try { payload.geocoded_at = new Date().toISOString() } catch { /* column may not exist */ }
+
+        const { error: updateErr } = await db
+          .from('stores')
+          .update(payload)
+          .eq('id', store.id)
+
+        if (updateErr) {
+          // Retry without geocoded_at in case the column doesn't exist yet
+          const { error: retryErr } = await db
+            .from('stores')
+            .update({ lat: result.lat, lng: result.lng })
+            .eq('id', store.id)
+
+          if (retryErr) {
+            failed.push(`${store.name}: update failed — ${retryErr.message}`)
+            await sleep(1100)
+            continue
+          }
+        }
+
+        updatedCount++
+      } else {
+        skippedCount++
       }
 
       // Nominatim: 1 req/sec
@@ -206,7 +246,12 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(
-      JSON.stringify({ updated: updatedCount, processed: stores.length, failed }),
+      JSON.stringify({
+        updated:   updatedCount,
+        skipped:   skippedCount,
+        processed: stores.length,
+        failed,
+      }),
       { headers: { 'Content-Type': 'application/json' } }
     )
   }
