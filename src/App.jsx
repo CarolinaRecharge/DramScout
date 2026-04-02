@@ -3771,7 +3771,7 @@ export default function App() {
       if (!mapContainerRef.current || mapInstanceRef.current) return
       const L = window.L
       const map = L.map(mapContainerRef.current, {
-        center: [35.7796, -78.6382],
+        center: [36.0999, -80.2442],
         zoom: 11,
         zoomControl: true,
         attributionControl: true,
@@ -4760,8 +4760,8 @@ export default function App() {
     const handle = reporterHandle.trim() || ('scout_' + fp.slice(-4))
 
     // Always pin to store location — never user GPS
-    const lat = selectedStore?.lat ?? prefillCoords?.lat ?? 35.7796
-    const lng = selectedStore?.lng ?? prefillCoords?.lng ?? -78.6382
+    const lat = selectedStore?.lat ?? prefillCoords?.lat ?? 36.0999
+    const lng = selectedStore?.lng ?? prefillCoords?.lng ?? -80.2442
 
     const localSighting = {
       id: `local-${Date.now()}`,
