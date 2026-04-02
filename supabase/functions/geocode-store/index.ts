@@ -86,13 +86,12 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400 })
   }
 
-  // Use service-role key from env secret if set, otherwise fall back to the
-  // Bearer token the caller already passed — so no separate secret config needed.
+  // SUPABASE_URL and SUPABASE_ANON_KEY are always auto-injected by Supabase.
+  // Access control is handled by the stores_update RLS policy + this function's
+  // own Bearer token check, so the anon key is safe to use here.
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-  const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    ?? req.headers.get('Authorization')?.replace('Bearer ', '')
-    ?? ''
-  const db = createClient(supabaseUrl, serviceKey)
+  const anonKey     = Deno.env.get('SUPABASE_ANON_KEY')!
+  const db = createClient(supabaseUrl, anonKey)
 
   // ── Mode 1: preview — address supplied directly ────────────────────────────
   if (body.address && body.city && body.state) {
