@@ -86,9 +86,12 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400 })
   }
 
-  // Build a Supabase client using the service-role key from env so we can write.
-  const supabaseUrl  = Deno.env.get('SUPABASE_URL')!
-  const serviceKey   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  // Use service-role key from env secret if set, otherwise fall back to the
+  // Bearer token the caller already passed — so no separate secret config needed.
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+  const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    ?? req.headers.get('Authorization')?.replace('Bearer ', '')
+    ?? ''
   const db = createClient(supabaseUrl, serviceKey)
 
   // ── Mode 1: preview — address supplied directly ────────────────────────────
