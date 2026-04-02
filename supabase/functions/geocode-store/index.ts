@@ -129,20 +129,14 @@ Deno.serve(async (req: Request) => {
     const updated = d > DRIFT_THRESHOLD
 
     if (updated) {
-      const { error: updateErr } = await db
-        .from('stores')
-        .update({ lat: result.lat, lng: result.lng, geocoded_at: new Date().toISOString() })
-        .eq('id', store.id)
-
+      const { error: updateErr } = await db.rpc('update_store_coords', {
+        p_id:  store.id,
+        p_lat: result.lat,
+        p_lng: result.lng,
+      })
       if (updateErr) {
         return new Response(JSON.stringify({ error: updateErr.message }), { status: 500 })
       }
-    } else {
-      // Still stamp geocoded_at even when coords are fine
-      await db
-        .from('stores')
-        .update({ geocoded_at: new Date().toISOString() })
-        .eq('id', store.id)
     }
 
     return new Response(
@@ -212,28 +206,18 @@ Deno.serve(async (req: Request) => {
       const d = maxDrift({ lat: store.lat, lng: store.lng }, result)
 
       if (d > DRIFT_THRESHOLD) {
-        // Build update payload — include geocoded_at only if the column exists
-        // (migration 002). If it doesn't, the update still succeeds for lat/lng.
-        const payload: Record<string, unknown> = { lat: result.lat, lng: result.lng }
-        try { payload.geocoded_at = new Date().toISOString() } catch { /* column may not exist */ }
-
-        const { error: updateErr } = await db
-          .from('stores')
-          .update(payload)
-          .eq('id', store.id)
+        // Use a SECURITY DEFINER RPC function so the update bypasses RLS
+        // regardless of which key the edge function client is using.
+        const { error: updateErr } = await db.rpc('update_store_coords', {
+          p_id:  store.id,
+          p_lat: result.lat,
+          p_lng: result.lng,
+        })
 
         if (updateErr) {
-          // Retry without geocoded_at in case the column doesn't exist yet
-          const { error: retryErr } = await db
-            .from('stores')
-            .update({ lat: result.lat, lng: result.lng })
-            .eq('id', store.id)
-
-          if (retryErr) {
-            failed.push(`${store.name}: update failed — ${retryErr.message}`)
-            await sleep(1100)
-            continue
-          }
+          failed.push(`${store.name}: update failed — ${updateErr.message}`)
+          await sleep(1100)
+          continue
         }
 
         updatedCount++
