@@ -183,6 +183,22 @@ body {
   border: 1.5px solid var(--rule);
 }
 
+.header-mode-toggle {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  background: none;
+  border-radius: 20px;
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.header-mode-toggle:hover { background: var(--gold-glow); }
+
 /* ─── TAB BAR ────────────────────────────────────────────────────────────── */
 .tab-bar {
   position: fixed;
@@ -4982,6 +4998,15 @@ export default function App() {
           <img src="/icon-192.png" className="header-logo" alt="" />
           <span className="header-title">DRAM SCOUT</span>
         </div>
+        {isAdmin && (
+          <button
+            className="header-mode-toggle"
+            onClick={() => { window.location.href = '/store' }}
+            title="Switch to Store Portal view"
+          >
+            Store View →
+          </button>
+        )}
         {session ? (
           <button
             className="header-user signed-in"

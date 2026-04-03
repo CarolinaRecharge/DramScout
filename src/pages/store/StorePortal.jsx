@@ -106,10 +106,12 @@ const styles = `
 
 export default function StorePortal() {
   const [storeProfile, setStoreProfile] = useState(null)
+  const [session, setSession] = useState(null)
   const navigate = useNavigate()
   const location = useLocation()
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session))
     supabase.from('store_profiles')
       .select('*')
       .single()
@@ -144,6 +146,15 @@ export default function StorePortal() {
                 {storeProfile.store_name}
                 {storeProfile.store_number && ` · #${storeProfile.store_number}`}
               </span>
+            )}
+            {session?.user?.email === 'danielk.black95@gmail.com' && (
+              <button
+                className="portal-signout"
+                onClick={() => { window.location.href = '/' }}
+                title="Switch to customer app view"
+              >
+                ← User View
+              </button>
             )}
             <button className="portal-signout" onClick={handleSignOut}>Sign Out</button>
           </div>
