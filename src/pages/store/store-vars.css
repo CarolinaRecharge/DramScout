@@ -1,0 +1,18 @@
+/* Store portal CSS variable scope.
+   Applied to .store-root so these tokens don't bleed into the customer app. */
+.store-root {
+  --amber: #C8820A;
+  --amber-light: #E8A020;
+  --amber-pale: #F5C842;
+  --dark: #0D0A07;
+  --dark-2: #1A1208;
+  --dark-3: #221A0E;
+  --dark-4: #2E2214;
+  --bark: #3D2B10;
+  --cream: #F2E8D5;
+  --cream-2: #E8D9BE;
+  --muted: #8A7660;
+  --green: #2D5A27;
+  --green-light: #5cb85c;
+  --red: #8B2E2E;
+}

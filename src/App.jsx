@@ -3497,6 +3497,87 @@ function makePinSVG(tier, isFresh) {
   return svg
 }
 
+// ─── MY LOTTERY ENTRIES ────────────────────────────────────────────────────
+function MyLotteryEntries({ userId }) {
+  const [entries, setEntries] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!userId || !supabase) { setLoading(false); return }
+    supabase
+      .from('lottery_tokens')
+      .select(`
+        ticket_number, claimed_at,
+        lottery_programs (
+          bottle_name, draw_date, status, draw_winner_count, winner_user_ids,
+          store_profiles ( store_name, store_number )
+        )
+      `)
+      .eq('claimed_by_user_id', userId)
+      .eq('status', 'claimed')
+      .order('claimed_at', { ascending: false })
+      .then(({ data }) => {
+        setEntries(data || [])
+        setLoading(false)
+      })
+  }, [userId])
+
+  if (loading) return null
+  if (entries.length === 0) return (
+    <div className="profile-empty" style={{ marginTop: 8 }}>
+      No lottery entries yet — scan a QR code at participating stores
+    </div>
+  )
+
+  function formatDrawDate(ts) {
+    if (!ts) return '—'
+    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  return (
+    <>
+      {entries.map((entry, i) => {
+        const prog = entry.lottery_programs
+        if (!prog) return null
+        const isDrawn = prog.status === 'drawn'
+        const isWinner = isDrawn && Array.isArray(prog.winner_user_ids) && prog.winner_user_ids.includes(userId)
+        return (
+          <div key={i} className="profile-fav-store-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+            <div style={{ display: 'flex', width: '100%', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 15, color: 'var(--paper)', fontWeight: 600 }}>
+                {prog.bottle_name}
+              </div>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                {isWinner && (
+                  <span style={{ fontSize: 9, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid var(--gold)', padding: '2px 8px', borderRadius: 2 }}>
+                    Won
+                  </span>
+                )}
+                {isDrawn && !isWinner && (
+                  <span style={{ fontSize: 9, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--ghost)', border: '1px solid var(--worn)', padding: '2px 8px', borderRadius: 2 }}>
+                    Drawn
+                  </span>
+                )}
+                {!isDrawn && (
+                  <span style={{ fontSize: 9, letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--gold-light)', border: '1px solid var(--worn)', padding: '2px 8px', borderRadius: 2 }}>
+                    Upcoming
+                  </span>
+                )}
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--ghost)' }}>
+              {prog.store_profiles?.store_name}{prog.store_profiles?.store_number ? ` · #${prog.store_profiles.store_number}` : ''}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--worn)', letterSpacing: '0.5px' }}>
+              Ticket #{entry.ticket_number} · Draw {formatDrawDate(prog.draw_date)}
+            </div>
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
 // ─── MAIN APP ──────────────────────────────────────────────────────────────
 export default function App() {
   const [activeTab, setActiveTab] = useState('scout')
@@ -5670,6 +5751,12 @@ export default function App() {
                   </div>
                 </div>
               ))}
+
+              {/* My Lottery Entries */}
+              <div className="profile-section-header" style={{ marginTop: 8 }}>
+                MY LOTTERY ENTRIES
+              </div>
+              <MyLotteryEntries userId={session?.user?.id} />
             </>
           ) : (
             <div className="profile-signin-prompt">
