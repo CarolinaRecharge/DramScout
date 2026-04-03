@@ -629,7 +629,7 @@ export default function StoreLotteries({ storeProfile }) {
           <div className="modal-box">
             <div className="modal-title">Create Lottery</div>
 
-            <label className="modal-field-label">Bottle Name *</label>
+            <label className="modal-field-label">Lottery Name *</label>
             <input
               className="modal-input"
               type="text"
