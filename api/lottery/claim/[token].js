@@ -21,9 +21,6 @@ export default async function handler(req, res) {
 
 // ── GET: validate token before showing claim UI ───────────────────────────────
 async function handleValidate(token, res) {
-  // Expire stale tokens (anon has EXECUTE on this function via migration 005)
-  await supabase.rpc('expire_stale_tokens')
-
   const { data, error } = await supabase
     .from('lottery_tokens')
     .select(`
@@ -37,8 +34,12 @@ async function handleValidate(token, res) {
     .single()
 
   if (error || !data) return res.status(404).json({ error: 'invalid' })
-  if (data.status === 'expired') return res.status(410).json({ error: 'expired' })
   if (data.status === 'claimed') return res.status(409).json({ error: 'already_claimed' })
+  // Check expiry inline rather than calling expire_stale_tokens() — avoids
+  // an RLS conflict since the anon UPDATE policy only allows → 'claimed'.
+  if (data.status === 'expired' || new Date(data.expires_at) < new Date()) {
+    return res.status(410).json({ error: 'expired' })
+  }
 
   return res.status(200).json({
     valid: true,
