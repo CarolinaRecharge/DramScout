@@ -59,7 +59,9 @@ export default async function handler(req, res) {
 
   if (!inserted) return res.status(500).json({ error: 'Token generation failed' })
 
-  const baseUrl = process.env.BASE_URL || process.env.VITE_BASE_URL || 'https://dramscout.app'
+  const proto = req.headers['x-forwarded-proto'] || 'https'
+  const host = req.headers['x-forwarded-host'] || req.headers.host
+  const baseUrl = process.env.BASE_URL || process.env.VITE_BASE_URL || `${proto}://${host}`
   const claimUrl = `${baseUrl}/claim/${token}`
 
   return res.status(200).json({
