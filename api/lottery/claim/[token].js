@@ -1,9 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY
+
+// Anon client — works for reading tokens and claiming as guest.
+// RLS policies in 005_anon_claim_access.sql grant the anon role
+// the necessary SELECT / UPDATE permissions.
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 export default async function handler(req, res) {
   const { token } = req.query
@@ -18,10 +21,10 @@ export default async function handler(req, res) {
 
 // ── GET: validate token before showing claim UI ───────────────────────────────
 async function handleValidate(token, res) {
-  // Expire stale tokens
-  await supabaseAdmin.rpc('expire_stale_tokens')
+  // Expire stale tokens (anon has EXECUTE on this function via migration 005)
+  await supabase.rpc('expire_stale_tokens')
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from('lottery_tokens')
     .select(`
       id, token, status, expires_at,
@@ -48,12 +51,16 @@ async function handleValidate(token, res) {
 async function handleClaim(token, req, res) {
   const { phone } = req.body || {}
 
-  // Resolve user identity
+  // Resolve user identity if a JWT was sent
   let userId = null
   const authHeader = req.headers.authorization
   if (authHeader) {
     const jwt = authHeader.replace('Bearer ', '')
-    const { data: { user } } = await supabaseAdmin.auth.getUser(jwt)
+    // Use a per-request authenticated client to verify the JWT via RLS
+    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${jwt}` } }
+    })
+    const { data: { user } } = await userClient.auth.getUser(jwt)
     if (user) userId = user.id
   }
 
@@ -61,7 +68,8 @@ async function handleClaim(token, req, res) {
     return res.status(400).json({ error: 'Must be logged in or provide phone number' })
   }
 
-  const { data: tokenRow, error: fetchError } = await supabaseAdmin
+  // Read the token row (anon SELECT policy allows this)
+  const { data: tokenRow, error: fetchError } = await supabase
     .from('lottery_tokens')
     .select('id, status, program_id, expires_at')
     .eq('token', token)
@@ -74,20 +82,20 @@ async function handleClaim(token, req, res) {
     })
   }
   if (new Date(tokenRow.expires_at) < new Date()) {
-    await supabaseAdmin
+    await supabase
       .from('lottery_tokens')
       .update({ status: 'expired' })
       .eq('id', tokenRow.id)
     return res.status(410).json({ error: 'expired' })
   }
 
-  // Get next ticket number
-  const { data: ticketNumData } = await supabaseAdmin
+  // Get next ticket number (anon has EXECUTE on this function via migration 005)
+  const { data: ticketNumData } = await supabase
     .rpc('next_ticket_number', { p_program_id: tokenRow.program_id })
   const ticketNumber = ticketNumData || 1
 
-  // Atomic claim: only succeeds if status is still 'pending'
-  const { data: updated, error: updateError } = await supabaseAdmin
+  // Atomic claim: anon UPDATE policy enforces status 'pending' → 'claimed'
+  const { data: updated, error: updateError } = await supabase
     .from('lottery_tokens')
     .update({
       status: 'claimed',
@@ -104,10 +112,10 @@ async function handleClaim(token, req, res) {
     return res.status(409).json({ error: 'already_claimed' })
   }
 
-  // Count total entries this customer has in this program
+  // Count total entries this customer has in this program (authenticated only)
   let totalEntries = 1
   if (userId) {
-    const { count } = await supabaseAdmin
+    const { count } = await supabase
       .from('lottery_tokens')
       .select('id', { count: 'exact', head: true })
       .eq('program_id', tokenRow.program_id)
