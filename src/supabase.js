@@ -363,6 +363,18 @@ export async function upsertProfile(userId, email, displayName) {
     .upsert({ user_id: userId, email, display_name: displayName }, { onConflict: 'user_id' })
 }
 
+// Fetch phone and verification status for the logged-in user's profile
+export async function fetchUserPhone(userId) {
+  if (!supabase || !userId) return null
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('phone, phone_verified')
+    .eq('user_id', userId)
+    .single()
+  if (error) { console.warn('fetchUserPhone:', error.message); return null }
+  return data
+}
+
 // Fetch all profiles with their roles merged in (admin use)
 export async function fetchAllProfilesWithRoles() {
   if (!supabase) return []
