@@ -302,42 +302,51 @@ export default function ClaimPage() {
   }, [token])
 
   async function validateToken() {
-    const res = await fetch(`/api/lottery/claim/${token}`)
-    if (res.status === 404) { setPhase('invalid'); return }
-    if (res.status === 410) { setPhase('expired'); return }
-    if (res.status === 409) { setPhase('claimed'); return }
-    if (!res.ok) { setPhase('invalid'); return }
+    try {
+      const res = await fetch(`/api/lottery/claim/${token}`)
+      if (res.status === 404) { setPhase('invalid'); return }
+      if (res.status === 410) { setPhase('expired'); return }
+      if (res.status === 409) { setPhase('claimed'); return }
+      if (!res.ok) { setPhase('invalid'); return }
 
-    const data = await res.json()
-    setTokenInfo(data)
-    setPhase('valid')
-    setAutoClaiming(false)
+      const data = await res.json()
+      setTokenInfo(data)
+      setPhase('valid')
+      setAutoClaiming(false)
+    } catch {
+      setPhase('invalid')
+    }
   }
 
   async function claimWithAuth(accessToken) {
     setPhase('claiming')
     setError(null)
 
-    const res = await fetch(`/api/lottery/claim/${token}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`
+    try {
+      const res = await fetch(`/api/lottery/claim/${token}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        }
+      })
+
+      const data = await res.json()
+
+      if (res.status === 409 && data.error === 'already_claimed') { setPhase('claimed'); return }
+      if (res.status === 410) { setPhase('expired'); return }
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong. Please try again.')
+        setPhase('valid')
+        return
       }
-    })
 
-    const data = await res.json()
-
-    if (res.status === 409 && data.error === 'already_claimed') { setPhase('claimed'); return }
-    if (res.status === 410) { setPhase('expired'); return }
-    if (!res.ok) {
-      setError(data.error || 'Something went wrong. Please try again.')
+      setTicketResult(data)
+      setPhase('success')
+    } catch {
+      setError('Network error. Please check your connection and try again.')
       setPhase('valid')
-      return
     }
-
-    setTicketResult(data)
-    setPhase('success')
   }
 
   async function handleGoogleSignIn() {
@@ -353,24 +362,29 @@ export default function ClaimPage() {
     setPhase('claiming')
     setError(null)
 
-    const res = await fetch(`/api/lottery/claim/${token}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: phone.trim() })
-    })
+    try {
+      const res = await fetch(`/api/lottery/claim/${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone.trim() })
+      })
 
-    const data = await res.json()
+      const data = await res.json()
 
-    if (res.status === 409 && data.error === 'already_claimed') { setPhase('claimed'); return }
-    if (res.status === 410) { setPhase('expired'); return }
-    if (!res.ok) {
-      setError(data.error || 'Something went wrong. Please try again.')
+      if (res.status === 409 && data.error === 'already_claimed') { setPhase('claimed'); return }
+      if (res.status === 410) { setPhase('expired'); return }
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong. Please try again.')
+        setPhase('valid')
+        return
+      }
+
+      setTicketResult(data)
+      setPhase('success')
+    } catch {
+      setError('Network error. Please check your connection and try again.')
       setPhase('valid')
-      return
     }
-
-    setTicketResult(data)
-    setPhase('success')
   }
 
   async function handleClaimWithAccount() {

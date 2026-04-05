@@ -25,3 +25,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <Analytics />
   </React.StrictMode>
 )
+
+// Remove the HTML loading splash once React has painted,
+// regardless of which route rendered (App.jsx only does this for itself).
+requestAnimationFrame(() => {
+  const splash = document.getElementById('app-loading')
+  if (splash) {
+    splash.style.transition = 'opacity 0.3s ease'
+    splash.style.opacity = '0'
+    setTimeout(() => splash.remove(), 300)
+  }
+})
