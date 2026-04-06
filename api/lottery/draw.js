@@ -79,12 +79,36 @@ export default async function handler(req, res) {
   // Uses the admin client so RLS doesn't block cross-user profile reads.
   let profileMap = {}
   if (supabaseAdmin && winnerIds.length > 0) {
+    // Primary: profiles table (has display_name and registered phone)
     const { data: profiles } = await supabaseAdmin
       .from('profiles')
       .select('user_id, display_name, email, phone')
       .in('user_id', winnerIds)
     if (profiles) {
       profiles.forEach(p => { profileMap[p.user_id] = p })
+    }
+
+    // Fallback: for any winner whose profiles row is missing or has no
+    // email/name (e.g. row not yet created, or Google OAuth user whose
+    // upsertProfile hasn't run), read directly from Supabase Auth which
+    // always stores the email and OAuth display name.
+    const needsAuthLookup = winnerIds.filter(id => {
+      const p = profileMap[id]
+      return !p || (!p.email && !p.display_name)
+    })
+    for (const userId of needsAuthLookup) {
+      const { data: { user }, error: authLookupErr } = await supabaseAdmin.auth.admin.getUserById(userId)
+      if (authLookupErr || !user) continue
+      profileMap[userId] = {
+        ...profileMap[userId],
+        user_id: userId,
+        display_name: profileMap[userId]?.display_name
+          || user.user_metadata?.full_name
+          || user.user_metadata?.name
+          || null,
+        email: profileMap[userId]?.email || user.email || null,
+        phone: profileMap[userId]?.phone || user.phone || null,
+      }
     }
   }
 
