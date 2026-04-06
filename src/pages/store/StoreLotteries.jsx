@@ -67,6 +67,14 @@ const styles = `
     border-color: var(--amber);
   }
 
+  /* When a winner section is attached below, square off the bottom corners
+     and remove bottom margin so the two elements visually join */
+  .program-card.program-card-has-winners {
+    border-radius: 8px 8px 0 0;
+    margin-bottom: 0;
+    border-bottom-color: transparent;
+  }
+
   .program-card-main {
     flex: 1;
   }
@@ -407,6 +415,48 @@ const styles = `
     word-break: break-word;
   }
 
+  /* Persistent collapsible winner section */
+  .winner-section {
+    border: 1px solid rgba(45, 90, 39, 0.4);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .winner-toggle {
+    width: 100%;
+    background: rgba(45, 90, 39, 0.08);
+    border: none;
+    color: var(--green-light);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.15s;
+  }
+
+  .winner-toggle:hover { background: rgba(45, 90, 39, 0.15); }
+
+  .winner-toggle-arrow {
+    font-size: 8px;
+    color: var(--muted);
+  }
+
+  .winner-list {
+    padding: 12px 16px 16px;
+    background: rgba(45, 90, 39, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
   .lotteries-loading {
     color: var(--muted);
     font-size: 11px;
@@ -486,7 +536,16 @@ export default function StoreLotteries({ storeProfile }) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [confirmDrawId, setConfirmDrawId] = useState(null)
   const [drawingId, setDrawingId] = useState(null)
-  const [drawResults, setDrawResults] = useState({}) // programId → winners[]
+  const [openWinners, setOpenWinners] = useState(new Set())
+
+  function toggleWinners(id) {
+    setOpenWinners(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   async function loadPrograms() {
     const { data } = await supabase
@@ -565,8 +624,9 @@ export default function StoreLotteries({ storeProfile }) {
     setDrawingId(null)
 
     if (res.ok) {
-      setDrawResults(prev => ({ ...prev, [programId]: data.winners }))
       await loadPrograms()
+      // Auto-expand the winner section for the program just drawn
+      setOpenWinners(prev => new Set([...prev, programId]))
     } else {
       alert(data.error || 'Draw failed')
     }
@@ -593,11 +653,14 @@ export default function StoreLotteries({ storeProfile }) {
   function ProgramCard({ p }) {
     const count = entryCounts[p.id] ?? '—'
     const isDrawing = drawingId === p.id
-    const result = drawResults[p.id]
+    const winners = p.winner_snapshot   // persisted JSONB from DB
+    const isOpen = openWinners.has(p.id)
+
+    const hasWinners = p.status === 'drawn' && winners && winners.length > 0
 
     return (
       <>
-        <div className={`program-card ${p.status === 'active' ? 'program-active' : ''}`}>
+        <div className={`program-card ${p.status === 'active' ? 'program-active' : ''}${hasWinners ? ' program-card-has-winners' : ''}`}>
           <div style={{ textAlign: 'center' }}>
             <div className="program-entry-count">{count}</div>
             <div className="program-entry-label">Entries</div>
@@ -648,39 +711,47 @@ export default function StoreLotteries({ storeProfile }) {
           </div>
         </div>
 
-        {result && (
-          <div className="draw-result">
-            <div className="draw-result-title">
-              Draw Results — {p.bottle_name}
-              <span className="draw-result-count">{result.length} winner{result.length !== 1 ? 's' : ''}</span>
-            </div>
-            {result.map((w, i) => (
-              <div key={i} className="draw-winner-card">
-                <div className="draw-winner-header">
-                  <span className="draw-ticket-num">Ticket #{w.ticket_number ?? '—'}</span>
-                  <span className="draw-winner-label">Winner {result.length > 1 ? i + 1 : ''}</span>
-                  {w.claimed_at && (
-                    <span className="draw-winner-date">
-                      Entered {new Date(w.claimed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </span>
-                  )}
-                </div>
-                <div className="draw-winner-fields">
-                  <div className="draw-winner-field">
-                    <span className="draw-field-label">Name</span>
-                    <span className="draw-field-value">{w.display_name || '—'}</span>
+        {/* Persistent collapsible winner section — visible on any drawn program that has a snapshot */}
+        {hasWinners && (
+          <div className="winner-section">
+            <button className="winner-toggle" onClick={() => toggleWinners(p.id)}>
+              <span className="winner-toggle-arrow">{isOpen ? '▼' : '▶'}</span>
+              WINNER{winners.length !== 1 ? 'S' : ''} ({winners.length})
+            </button>
+
+            {isOpen && (
+              <div className="winner-list">
+                {winners.map((w, i) => (
+                  <div key={i} className="draw-winner-card">
+                    <div className="draw-winner-header">
+                      <span className="draw-ticket-num">Ticket #{w.ticket_number ?? '—'}</span>
+                      {winners.length > 1 && (
+                        <span className="draw-winner-label">Winner {i + 1}</span>
+                      )}
+                      {w.claimed_at && (
+                        <span className="draw-winner-date">
+                          Entered {new Date(w.claimed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      )}
+                    </div>
+                    <div className="draw-winner-fields">
+                      <div className="draw-winner-field">
+                        <span className="draw-field-label">Name</span>
+                        <span className="draw-field-value">{w.display_name || '—'}</span>
+                      </div>
+                      <div className="draw-winner-field">
+                        <span className="draw-field-label">Email</span>
+                        <span className="draw-field-value">{w.email || '—'}</span>
+                      </div>
+                      <div className="draw-winner-field">
+                        <span className="draw-field-label">Phone</span>
+                        <span className="draw-field-value">{w.phone || '—'}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="draw-winner-field">
-                    <span className="draw-field-label">Email</span>
-                    <span className="draw-field-value">{w.email || '—'}</span>
-                  </div>
-                  <div className="draw-winner-field">
-                    <span className="draw-field-label">Phone</span>
-                    <span className="draw-field-value">{w.phone || '—'}</span>
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
       </>

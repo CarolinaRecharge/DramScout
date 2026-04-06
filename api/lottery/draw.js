@@ -101,10 +101,11 @@ export default async function handler(req, res) {
     }
   })
 
-  // Update program status and record winner IDs
+  // Update program status, record winner IDs, and persist the full snapshot
+  // so the store portal can display winner details after page reload.
   const { error: updateError } = await supabase
     .from('lottery_programs')
-    .update({ status: 'drawn', winner_user_ids: winnerIds })
+    .update({ status: 'drawn', winner_user_ids: winnerIds, winner_snapshot: enrichedWinners })
     .eq('id', program_id)
 
   if (updateError) {
