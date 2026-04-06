@@ -56,7 +56,7 @@ export default async function handler(req, res) {
         ),
         barrel_pick_reports ( id, report_type )
       `)
-      .or('is_published.eq.true,is_featured.eq.true')
+      .eq('is_published', true)
       .order('arrival_date', { ascending: false })
       .range(offsetNum, offsetNum + limitNum * 3 - 1) // fetch extra to filter by radius
   } else {
@@ -70,7 +70,7 @@ export default async function handler(req, res) {
         ),
         barrel_pick_reports ( id, report_type )
       `)
-      .or('is_published.eq.true,is_featured.eq.true')
+      .eq('is_published', true)
       .order('arrival_date', { ascending: false })
       .range(offsetNum, offsetNum + limitNum - 1)
   }

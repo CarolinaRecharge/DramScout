@@ -143,6 +143,7 @@ function GlencairnEmpty() {
 export default function ScoutTab({ searchQuery = '' }) {
   const [picks, setPicks] = useState([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(null)
   const [distilleryFilter, setDistilleryFilter] = useState('All')
   const [location, setLocation] = useState(null)
   const [locationDenied, setLocationDenied] = useState(false)
@@ -165,6 +166,7 @@ export default function ScoutTab({ searchQuery = '' }) {
 
   const fetchPicks = useCallback(async (newOffset = 0, append = false) => {
     setLoading(true)
+    setFetchError(null)
     try {
       const params = new URLSearchParams({
         limit: String(LIMIT),
@@ -180,8 +182,8 @@ export default function ScoutTab({ searchQuery = '' }) {
       }
 
       const res = await fetch(`/api/barrel-picks?${params}`)
-      if (!res.ok) throw new Error('fetch failed')
       const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
       const fetched = data.picks || []
 
       setPicks(prev => append ? [...prev, ...fetched] : fetched)
@@ -189,6 +191,7 @@ export default function ScoutTab({ searchQuery = '' }) {
       setOffset(newOffset + fetched.length)
     } catch (err) {
       console.error('ScoutTab fetch:', err)
+      setFetchError(err.message)
       if (!append) setPicks([])
     }
     setLoading(false)
@@ -256,6 +259,12 @@ export default function ScoutTab({ searchQuery = '' }) {
         <div className="bp-picks-list">
           {loading && picks.length === 0 ? (
             <div className="bp-loading">LOADING PICKS...</div>
+          ) : fetchError ? (
+            <div className="bp-empty">
+              <div className="bp-empty-sub" style={{ color: 'var(--urgent, #c0392b)' }}>
+                Error loading picks: {fetchError}
+              </div>
+            </div>
           ) : filteredPicks.length === 0 ? (
             <div className="bp-empty">
               <GlencairnEmpty />
