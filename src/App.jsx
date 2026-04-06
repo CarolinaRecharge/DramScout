@@ -20,6 +20,8 @@ import {
   deleteForumThread, deleteForumThreadAdmin,
   toggleForumReaction, subscribeToForumPosts,
   fetchUserPhone,
+  fetchUserHandle,
+  updateUserHandle,
 } from './supabase'
 
 const ADMIN_EMAIL = 'danielk.black95@gmail.com'
@@ -3985,6 +3987,11 @@ export default function App() {
   const [notifLoading, setNotifLoading] = useState(false)
   const [pushSupported, setPushSupported] = useState(false)
   const [notifError, setNotifError] = useState('')
+  // Scout handle
+  const [handleInput, setHandleInput] = useState('')
+  const [handleSaving, setHandleSaving] = useState(false)
+  const [handleError, setHandleError] = useState(null)
+  const [handleSaved, setHandleSaved] = useState(false)
   // Phone registration
   const [userPhone, setUserPhone] = useState(null)
   const [phoneStep, setPhoneStep] = useState('idle')   // 'idle' | 'editing' | 'awaiting_code'
@@ -4136,6 +4143,7 @@ export default function App() {
     if (!session?.user) return
     fetchNotificationPrefs(session.user.id).then(p => { if (p) setNotifPrefs(p) })
     fetchUserPhone(session.user.id).then(p => { if (p) setUserPhone(p) })
+    fetchUserHandle(session.user.id).then(h => { if (h) setReporterHandle(h) })
   }, [session])
 
   // ── Load all users when admin session is ready ────────────────────────
@@ -4149,12 +4157,18 @@ export default function App() {
     })
   }, [session, userRole])
 
-  // ── Pre-fill reporter handle from Google profile ───────────────────────
+  // ── Keep handleInput in sync with reporterHandle ─────────────────────────
+  useEffect(() => { setHandleInput(reporterHandle) }, [reporterHandle])
+
+  // ── Pre-fill reporter handle from Google profile (first login only) ──────
   useEffect(() => {
     if (session?.user?.user_metadata?.full_name && !reporterHandle) {
       const name = session.user.user_metadata.full_name
         .toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').slice(0, 30)
       setReporterHandle(name)
+      // Persist so it survives refreshes; won't overwrite a user-set handle
+      // since fetchUserHandle (above) runs first and sets reporterHandle if one exists
+      updateUserHandle(session.user.id, name)
     }
   }, [session])
 
@@ -4641,6 +4655,19 @@ export default function App() {
     } catch (err) {
       console.warn('unsubscribeFromPush:', err)
     }
+  }
+
+  // ── Scout handle save ────────────────────────────────────────────────────
+  async function handleSaveHandle() {
+    const trimmed = handleInput.trim()
+    if (!trimmed) { setHandleError('Handle cannot be empty.'); return }
+    setHandleSaving(true)
+    setHandleError(null)
+    await updateUserHandle(session.user.id, trimmed)
+    setReporterHandle(trimmed)
+    setHandleSaving(false)
+    setHandleSaved(true)
+    setTimeout(() => setHandleSaved(false), 2000)
   }
 
   // ── Phone registration handlers ───────────────────────────────────────────
@@ -5952,6 +5979,34 @@ export default function App() {
                   </div>
                 </div>
                 <button className="profile-signout-btn" onClick={() => signOut()}>SIGN OUT</button>
+              </div>
+
+              {/* ── Scout Handle ─────────────────────────────────── */}
+              <div className="phone-settings-panel">
+                <div className="phone-settings-header">SCOUT HANDLE</div>
+                <div className="phone-current">
+                  <span className="phone-number">@{reporterHandle || '—'}</span>
+                </div>
+                <div className="phone-field-row">
+                  <input
+                    className="phone-input"
+                    type="text"
+                    placeholder="bourbonhunter_nc"
+                    value={handleInput}
+                    onChange={e => setHandleInput(e.target.value.replace(/\s/g, '_').replace(/[^a-z0-9_]/g, '').toLowerCase().slice(0, 30))}
+                    disabled={handleSaving}
+                  />
+                </div>
+                {handleError && <div className="phone-error">{handleError}</div>}
+                <div className="phone-btn-row">
+                  <button
+                    className="phone-submit-btn"
+                    onClick={handleSaveHandle}
+                    disabled={handleSaving || !handleInput.trim()}
+                  >
+                    {handleSaving ? 'SAVING…' : handleSaved ? 'SAVED ✓' : 'SAVE HANDLE'}
+                  </button>
+                </div>
               </div>
 
               {/* ── Phone Number ─────────────────────────────────── */}

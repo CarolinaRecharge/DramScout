@@ -399,6 +399,27 @@ export async function fetchUserPhone(userId) {
   return data
 }
 
+// Fetch saved handle for a user
+export async function fetchUserHandle(userId) {
+  if (!supabase || !userId) return null
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('handle')
+    .eq('user_id', userId)
+    .single()
+  if (error) { console.warn('fetchUserHandle:', error.message); return null }
+  return data?.handle || null
+}
+
+// Persist a user-edited handle
+export async function updateUserHandle(userId, handle) {
+  if (!supabase || !userId) return
+  await supabase
+    .from('profiles')
+    .update({ handle })
+    .eq('user_id', userId)
+}
+
 // Fetch all profiles with their roles merged in (admin use)
 export async function fetchAllProfilesWithRoles() {
   if (!supabase) return []
