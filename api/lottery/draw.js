@@ -76,44 +76,43 @@ export default async function handler(req, res) {
     .map(w => w.claimed_by_user_id)
 
   // Enrich winners with profile data (display_name, email, phone).
+  // The profiles table has RLS — the store JWT can only see its own row,
+  // so we must use the service role client to read other users' profiles.
   let profileMap = {}
   if (winnerIds.length > 0) {
-    // Use the per-request store client — profiles allows authenticated reads
-    // (same access the admin panel uses). No service role needed here.
-    const { data: profiles, error: profileError } = await supabase
-      .from('profiles')
-      .select('user_id, display_name, email, phone')
-      .in('user_id', winnerIds)
-
-    if (profileError) {
-      console.warn('draw: profiles lookup failed:', profileError.message)
-    }
-    if (profiles) {
-      profiles.forEach(p => { profileMap[p.user_id] = p })
-    }
-
-    // Fallback: for any winner whose profiles row is missing or has no
-    // email/name, read directly from Supabase Auth — always has the email
-    // and OAuth display name for Google OAuth users. Requires service role.
     if (supabaseAdmin) {
+      // Service role bypasses RLS — can read any profile row.
+      const { data: profiles, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('user_id, display_name, email, phone')
+        .in('user_id', winnerIds)
+
+      if (profileError) {
+        console.warn('draw: profiles lookup error:', profileError.message)
+      }
+      if (profiles) {
+        profiles.forEach(p => { profileMap[p.user_id] = p })
+      }
+
+      // For any winner still missing email/name (profile row not yet created),
+      // fall back to auth.users which always has Google OAuth metadata.
       const needsAuthLookup = winnerIds.filter(id => {
         const p = profileMap[id]
         return !p || (!p.email && !p.display_name)
       })
       for (const userId of needsAuthLookup) {
-        const { data: { user }, error: authLookupErr } = await supabaseAdmin.auth.admin.getUserById(userId)
-        if (authLookupErr || !user) continue
+        const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(userId)
+        if (!user) continue
         profileMap[userId] = {
           ...profileMap[userId],
           user_id: userId,
-          display_name: profileMap[userId]?.display_name
-            || user.user_metadata?.full_name
-            || user.user_metadata?.name
-            || null,
+          display_name: profileMap[userId]?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || null,
           email: profileMap[userId]?.email || user.email || null,
           phone: profileMap[userId]?.phone || user.phone || null,
         }
       }
+    } else {
+      console.warn('draw: SUPABASE_SERVICE_ROLE_KEY not set — winner profile data will be blank')
     }
   }
 
