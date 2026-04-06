@@ -56,8 +56,7 @@ export default async function handler(req, res) {
         ),
         barrel_pick_reports ( id, report_type )
       `)
-      .eq('is_published', true)
-      .in('status', statusList)
+      .or('is_published.eq.true,is_featured.eq.true')
       .order('arrival_date', { ascending: false })
       .range(offsetNum, offsetNum + limitNum * 3 - 1) // fetch extra to filter by radius
   } else {
@@ -71,8 +70,7 @@ export default async function handler(req, res) {
         ),
         barrel_pick_reports ( id, report_type )
       `)
-      .eq('is_published', true)
-      .in('status', statusList)
+      .or('is_published.eq.true,is_featured.eq.true')
       .order('arrival_date', { ascending: false })
       .range(offsetNum, offsetNum + limitNum - 1)
   }
@@ -139,6 +137,9 @@ export default async function handler(req, res) {
       created_at: pick.created_at,
     }
   })
+
+  // Apply status filter in JS so featured picks can bypass it
+  picks = picks.filter(p => p.is_featured || statusList.includes(p.status))
 
   if (hasCoords) {
     const radiusMilesNum = parseFloat(radius_miles) || 50
