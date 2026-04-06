@@ -101,16 +101,27 @@ export default async function handler(req, res) {
     }
   })
 
-  // Update program status, record winner IDs, and persist the full snapshot
-  // so the store portal can display winner details after page reload.
+  // Step 1: Update status and winner IDs — these columns always exist.
   const { error: updateError } = await supabase
     .from('lottery_programs')
-    .update({ status: 'drawn', winner_user_ids: winnerIds, winner_snapshot: enrichedWinners })
+    .update({ status: 'drawn', winner_user_ids: winnerIds })
     .eq('id', program_id)
 
   if (updateError) {
     console.error('draw: program update failed', updateError.message)
     return res.status(500).json({ error: 'Failed to record draw result' })
+  }
+
+  // Step 2: Persist the full winner snapshot (requires migration 007).
+  // Non-fatal — the draw has already succeeded above; if this column
+  // doesn't exist yet the endpoint still returns the winners to the UI.
+  const { error: snapshotError } = await supabase
+    .from('lottery_programs')
+    .update({ winner_snapshot: enrichedWinners })
+    .eq('id', program_id)
+
+  if (snapshotError) {
+    console.warn('draw: winner_snapshot not saved (run migration 007):', snapshotError.message)
   }
 
   return res.status(200).json({ success: true, winners: enrichedWinners })
