@@ -4133,9 +4133,9 @@ export default function App() {
     const isOpera = /OPR\/|Opera\//.test(ua)
     setPushSupported(!isOpera && 'serviceWorker' in navigator && 'PushManager' in window)
     if (!session?.user) return
-    fetchNotificationPrefs(session.user.id).then(p => { if (p) setNotifPrefs(p) })
-    fetchUserPhone(session.user.id).then(p => { if (p) setUserPhone(p) })
-    fetchUserHandle(session.user.id).then(h => { if (h) setReporterHandle(h) })
+    fetchNotificationPrefs(session.user.id).then(p => { if (p) setNotifPrefs(p) }).catch(() => {})
+    fetchUserPhone(session.user.id).then(p => { if (p) setUserPhone(p) }).catch(() => {})
+    fetchUserHandle(session.user.id).then(h => { if (h) setReporterHandle(h) }).catch(() => {})
   }, [session])
 
   // ── Load all users when admin session is ready ────────────────────────
