@@ -1441,15 +1441,14 @@ body {
   inset: 0;
   background: rgba(0,0,0,0.6);
   z-index: 300;
-  opacity: 0;
-  transition: opacity 0.25s ease;
-  pointer-events: none;
+  animation: overlayFadeIn 0.25s ease forwards;
 }
 
-.sheet-overlay.open {
-  opacity: 1;
-  pointer-events: all;
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
+
 
 .sheet {
   position: fixed;
@@ -2852,13 +2851,7 @@ body {
   inset: 0;
   background: rgba(0,0,0,0.65);
   z-index: 400;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s;
-}
-.auth-overlay.open {
-  opacity: 1;
-  pointer-events: all;
+  animation: overlayFadeIn 0.2s ease forwards;
 }
 .auth-modal {
   position: fixed;
@@ -4094,7 +4087,8 @@ export default function App() {
         setDbReady(true)
         setAppLoading(false)
       }
-    ).catch(() => {
+    ).catch(err => {
+      console.error('DramScout: initial data load failed:', err)
       setDbSightings([])
       setAppLoading(false)
     })
@@ -6596,7 +6590,7 @@ export default function App() {
       </button>
 
       {/* ── BOTTOM SHEET ─────────────────────────────────────────────── */}
-      <div className={`sheet-overlay${sheetOpen ? ' open' : ''}`} onClick={closeSheet} />
+      {sheetOpen && <div className="sheet-overlay" onClick={closeSheet} />}
       <div
         ref={sheetRef}
         className={`sheet${sheetOpen ? ' open' : ''}`}
@@ -7190,7 +7184,7 @@ export default function App() {
       </div>
 
       {/* ── AUTH MODAL ───────────────────────────────────────────────── */}
-      <div className={`auth-overlay${showAuthModal ? ' open' : ''}`} onClick={() => setShowAuthModal(false)} />
+      {showAuthModal && <div className="auth-overlay" onClick={() => setShowAuthModal(false)} />}
       <div className={`auth-modal${showAuthModal ? ' open' : ''}`} role="dialog" aria-modal="true">
         <button className="auth-modal-close" onClick={() => setShowAuthModal(false)} aria-label="Close">×</button>
         <div className="auth-modal-brand">DRAM SCOUT</div>
