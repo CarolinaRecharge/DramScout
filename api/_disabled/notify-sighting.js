@@ -1,3 +1,9 @@
+// DISABLED — moved here to stay within Vercel hobby plan's 12-function limit.
+// To re-enable: move this file back to api/notify-sighting.js and redeploy.
+// This sends Web Push notifications when a new sighting is posted.
+// App.jsx calls /api/notify-sighting fire-and-forget (.catch(()=>{})),
+// so disabling it has zero user-visible impact — sightings still save normally.
+
 import webPush from 'web-push'
 import { createClient } from '@supabase/supabase-js'
 
