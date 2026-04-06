@@ -76,26 +76,27 @@ export default async function handler(req, res) {
     .map(w => w.claimed_by_user_id)
 
   // Enrich winners with profile data (display_name, email, phone).
-  // The profiles table has RLS — the store JWT can only see its own row,
-  // so we must use the service role client to read other users' profiles.
+  // Requires the Supabase RLS policy "authenticated_users_read_profiles"
+  // (FOR SELECT TO authenticated USING (true)) so the store JWT can read
+  // other users' profile rows. The service role is used as a fallback for
+  // any winner whose profiles row is missing (reads from auth.users instead).
   let profileMap = {}
   if (winnerIds.length > 0) {
+    const { data: profiles, error: profileError } = await supabase
+      .from('profiles')
+      .select('user_id, display_name, email, phone')
+      .in('user_id', winnerIds)
+
+    if (profileError) {
+      console.warn('draw: profiles lookup error:', profileError.message)
+    }
+    if (profiles) {
+      profiles.forEach(p => { profileMap[p.user_id] = p })
+    }
+
+    // For any winner still missing email/name (no profile row yet),
+    // fall back to auth.users metadata — requires service role key.
     if (supabaseAdmin) {
-      // Service role bypasses RLS — can read any profile row.
-      const { data: profiles, error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .select('user_id, display_name, email, phone')
-        .in('user_id', winnerIds)
-
-      if (profileError) {
-        console.warn('draw: profiles lookup error:', profileError.message)
-      }
-      if (profiles) {
-        profiles.forEach(p => { profileMap[p.user_id] = p })
-      }
-
-      // For any winner still missing email/name (profile row not yet created),
-      // fall back to auth.users which always has Google OAuth metadata.
       const needsAuthLookup = winnerIds.filter(id => {
         const p = profileMap[id]
         return !p || (!p.email && !p.display_name)
@@ -111,8 +112,6 @@ export default async function handler(req, res) {
           phone: profileMap[userId]?.phone || user.phone || null,
         }
       }
-    } else {
-      console.warn('draw: SUPABASE_SERVICE_ROLE_KEY not set — winner profile data will be blank')
     }
   }
 
