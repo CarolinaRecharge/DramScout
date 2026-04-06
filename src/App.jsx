@@ -2852,7 +2852,6 @@ body {
   inset: 0;
   background: rgba(0,0,0,0.65);
   z-index: 400;
-  backdrop-filter: blur(3px);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s;
