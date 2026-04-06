@@ -414,10 +414,10 @@ export async function fetchUserHandle(userId) {
 // Persist a user-edited handle
 export async function updateUserHandle(userId, handle) {
   if (!supabase || !userId) return
-  await supabase
+  const { error } = await supabase
     .from('profiles')
-    .update({ handle })
-    .eq('user_id', userId)
+    .upsert({ user_id: userId, handle }, { onConflict: 'user_id' })
+  if (error) throw new Error(error.message)
 }
 
 // Fetch all profiles with their roles merged in (admin use)

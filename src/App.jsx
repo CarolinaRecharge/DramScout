@@ -4663,11 +4663,16 @@ export default function App() {
     if (!trimmed) { setHandleError('Handle cannot be empty.'); return }
     setHandleSaving(true)
     setHandleError(null)
-    await updateUserHandle(session.user.id, trimmed)
-    setReporterHandle(trimmed)
-    setHandleSaving(false)
-    setHandleSaved(true)
-    setTimeout(() => setHandleSaved(false), 2000)
+    try {
+      await updateUserHandle(session.user.id, trimmed)
+      setReporterHandle(trimmed)
+      setHandleSaved(true)
+      setTimeout(() => setHandleSaved(false), 2000)
+    } catch (e) {
+      setHandleError('Failed to save. Please try again.')
+    } finally {
+      setHandleSaving(false)
+    }
   }
 
   // ── Phone registration handlers ───────────────────────────────────────────
