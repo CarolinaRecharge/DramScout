@@ -82,8 +82,8 @@ export default async function handler(req, res) {
   const { data, error } = await query
 
   if (error) {
-    console.error('barrel-picks GET:', error.message)
-    return res.status(500).json({ error: 'Failed to fetch barrel picks' })
+    console.error('barrel-picks GET:', error.message, error.code, error.details, error.hint)
+    return res.status(500).json({ error: error.message || 'Failed to fetch barrel picks', code: error.code })
   }
 
   // Shape and optionally filter/sort by distance
