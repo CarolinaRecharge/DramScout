@@ -3,6 +3,12 @@ import { createClient } from '@supabase/supabase-js'
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY
 
+// Service role client used only for reading winner profiles across user rows.
+// The per-request store client can't see other users' profiles via RLS.
+const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  : null
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -15,8 +21,7 @@ export default async function handler(req, res) {
   if (!authHeader) return res.status(401).json({ error: 'Unauthorized' })
   const jwt = authHeader.replace('Bearer ', '')
 
-  // Per-request authenticated client — RLS enforces store ownership automatically,
-  // matching the same pattern used by generate-token.js.
+  // Per-request authenticated client — RLS enforces store ownership automatically.
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${jwt}` } }
   })
@@ -24,8 +29,8 @@ export default async function handler(req, res) {
   const { data: { user }, error: authError } = await supabase.auth.getUser(jwt)
   if (authError || !user) return res.status(401).json({ error: 'Invalid session' })
 
-  // RLS policy "store_own_programs" (store_id = auth.uid()) enforces ownership —
-  // no row returned means either not found or not owned by this store.
+  // RLS policy "store_own_programs" (store_id = auth.uid()) enforces ownership.
+  // Re-draws are allowed — no status guard here.
   const { data: program, error: progError } = await supabase
     .from('lottery_programs')
     .select('*')
@@ -36,7 +41,6 @@ export default async function handler(req, res) {
     console.error('draw: program lookup failed', { program_id, error: progError?.message })
     return res.status(403).json({ error: 'Program not found' })
   }
-  if (program.status === 'drawn') return res.status(400).json({ error: 'Already drawn' })
 
   // Get all claimed tokens for this program
   const { data: entries, error: entryError } = await supabase
@@ -61,7 +65,33 @@ export default async function handler(req, res) {
     .filter(w => w.claimed_by_user_id)
     .map(w => w.claimed_by_user_id)
 
-  // Update program status
+  // Enrich winners with profile data (display_name, email, phone).
+  // Uses the admin client so RLS doesn't block cross-user profile reads.
+  let profileMap = {}
+  if (supabaseAdmin && winnerIds.length > 0) {
+    const { data: profiles } = await supabaseAdmin
+      .from('profiles')
+      .select('user_id, display_name, email, phone')
+      .in('user_id', winnerIds)
+    if (profiles) {
+      profiles.forEach(p => { profileMap[p.user_id] = p })
+    }
+  }
+
+  const enrichedWinners = winners.map(w => {
+    const profile = w.claimed_by_user_id ? profileMap[w.claimed_by_user_id] : null
+    return {
+      ticket_number: w.ticket_number,
+      claimed_at: w.claimed_at,
+      claimed_by_user_id: w.claimed_by_user_id,
+      claimed_by_phone: w.claimed_by_phone,
+      display_name: profile?.display_name || null,
+      email: profile?.email || null,
+      phone: profile?.phone || w.claimed_by_phone || null,
+    }
+  })
+
+  // Update program status and record winner IDs
   const { error: updateError } = await supabase
     .from('lottery_programs')
     .update({ status: 'drawn', winner_user_ids: winnerIds })
@@ -72,5 +102,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Failed to record draw result' })
   }
 
-  return res.status(200).json({ success: true, winners })
+  return res.status(200).json({ success: true, winners: enrichedWinners })
 }
