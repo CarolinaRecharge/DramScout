@@ -4160,15 +4160,16 @@ export default function App() {
   // ── Keep handleInput in sync with reporterHandle ─────────────────────────
   useEffect(() => { setHandleInput(reporterHandle) }, [reporterHandle])
 
-  // ── Pre-fill reporter handle from Google profile (first login only) ──────
+  // ── Pre-fill reporter handle from Google profile ─────────────────────────
   useEffect(() => {
     if (session?.user?.user_metadata?.full_name && !reporterHandle) {
       const name = session.user.user_metadata.full_name
         .toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').slice(0, 30)
       setReporterHandle(name)
-      // Persist so it survives refreshes; won't overwrite a user-set handle
-      // since fetchUserHandle (above) runs first and sets reporterHandle if one exists
-      updateUserHandle(session.user.id, name)
+      // Do NOT write to DB here — fetchUserHandle (fired in same render cycle) is
+      // async and may not have resolved yet, so reporterHandle appears empty and
+      // this would overwrite any handle the user explicitly saved. DB writes happen
+      // only when the user clicks SAVE HANDLE.
     }
   }, [session])
 
@@ -5973,15 +5974,17 @@ export default function App() {
                 <div className="profile-user-info">
                   <div className="profile-name">{session.user.user_metadata?.full_name || 'Scout'}</div>
                   <div className="profile-email">{session.user.email}</div>
-                  <span
-                    className="role-badge"
-                    style={{ color: ROLE_LABELS[effectiveRole].color, borderColor: ROLE_LABELS[effectiveRole].color, background: ROLE_LABELS[effectiveRole].bg }}
-                  >
-                    {ROLE_LABELS[effectiveRole].label}
-                  </span>
-                  <div style={{ fontFamily: "'Courier Prime', monospace", fontSize: 9, color: 'var(--ghost)', marginTop: 3, letterSpacing: '0.04em' }}>
-                    {ROLE_LABELS[effectiveRole].desc}
-                  </div>
+                  {(() => {
+                    const rl = ROLE_LABELS[effectiveRole] || ROLE_LABELS.scout
+                    return (<>
+                      <span className="role-badge" style={{ color: rl.color, borderColor: rl.color, background: rl.bg }}>
+                        {rl.label}
+                      </span>
+                      <div style={{ fontFamily: "'Courier Prime', monospace", fontSize: 9, color: 'var(--ghost)', marginTop: 3, letterSpacing: '0.04em' }}>
+                        {rl.desc}
+                      </div>
+                    </>)
+                  })()}
                 </div>
                 <button className="profile-signout-btn" onClick={() => signOut()}>SIGN OUT</button>
               </div>
