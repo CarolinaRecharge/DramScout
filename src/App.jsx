@@ -19,6 +19,7 @@ import {
   deleteForumPost, deleteForumPostAdmin,
   deleteForumThread, deleteForumThreadAdmin,
   toggleForumReaction, subscribeToForumPosts,
+  fetchUserPhone,
 } from './supabase'
 
 const ADMIN_EMAIL = 'danielk.black95@gmail.com'
@@ -2663,6 +2664,126 @@ body {
   line-height: 1.5;
 }
 
+/* ── Phone settings panel ── */
+.phone-settings-panel {
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.phone-settings-header {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--ghost);
+  margin-bottom: 12px;
+}
+.phone-current {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 13px;
+  color: var(--paper);
+}
+.phone-number { color: var(--paper); }
+.phone-empty { color: var(--ghost); font-style: italic; font-size: 12px; }
+.phone-verified-badge {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--fresh);
+  border: 1px solid var(--fresh);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.phone-unverified-badge {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--ghost);
+  border: 1px solid var(--worn);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.phone-edit-btn {
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.phone-edit-btn:hover { border-color: var(--gold); color: var(--gold); }
+.phone-field-row { margin-bottom: 8px; }
+.phone-input {
+  width: 100%;
+  background: var(--card-2);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--paper);
+  font-family: 'Courier Prime', monospace;
+  font-size: 13px;
+  padding: 7px 10px;
+}
+.phone-input:focus { outline: none; border-color: var(--gold); }
+.phone-code-hint {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: var(--ghost);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.phone-code-hint strong { color: var(--paper); }
+.phone-dev-banner {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  background: rgba(193,125,14,0.12);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  color: var(--gold-light);
+  padding: 6px 10px;
+  margin-bottom: 8px;
+}
+.phone-btn-row { display: flex; gap: 8px; }
+.phone-submit-btn {
+  background: var(--gold);
+  border: none;
+  border-radius: 4px;
+  color: var(--ink);
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+.phone-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.phone-submit-btn:not(:disabled):hover { background: var(--gold-light); }
+.phone-cancel-btn {
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.phone-cancel-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.phone-cancel-btn:hover:not(:disabled) { border-color: var(--worn); color: var(--parchment); }
+.phone-error {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  color: #E05C5C;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
 .profile-section-count {
   color: var(--ghost);
   font-weight: 400;
@@ -3649,6 +3770,14 @@ export default function App() {
   const [notifLoading, setNotifLoading] = useState(false)
   const [pushSupported, setPushSupported] = useState(false)
   const [notifError, setNotifError] = useState('')
+  // Phone registration
+  const [userPhone, setUserPhone] = useState(null)
+  const [phoneStep, setPhoneStep] = useState('idle')   // 'idle' | 'editing' | 'awaiting_code'
+  const [phoneInput, setPhoneInput] = useState('')
+  const [codeInput, setCodeInput] = useState('')
+  const [phoneDevCode, setPhoneDevCode] = useState(null)
+  const [phoneError, setPhoneError] = useState(null)
+  const [phoneLoading, setPhoneLoading] = useState(false)
   // Event type filter
   const [evtTypeFilter, setEvtTypeFilter] = useState('all')
   // Event creation form
@@ -3781,6 +3910,7 @@ export default function App() {
     setPushSupported(!isOpera && 'serviceWorker' in navigator && 'PushManager' in window)
     if (!session?.user) return
     fetchNotificationPrefs(session.user.id).then(p => { if (p) setNotifPrefs(p) })
+    fetchUserPhone(session.user.id).then(p => { if (p) setUserPhone(p) })
   }, [session])
 
   // ── Load all users when admin session is ready ────────────────────────
@@ -4253,6 +4383,56 @@ export default function App() {
       }
     } catch (err) {
       console.warn('unsubscribeFromPush:', err)
+    }
+  }
+
+  // ── Phone registration handlers ───────────────────────────────────────────
+  async function handleRequestPhoneVerification() {
+    if (!session) return
+    setPhoneLoading(true)
+    setPhoneError(null)
+    setPhoneDevCode(null)
+    try {
+      const jwt = (await getSession())?.access_token
+      const res = await fetch('/api/phone/request-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+        body: JSON.stringify({ phone: phoneInput }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setPhoneError(data.error || 'Failed to send code'); return }
+      if (data.dev_code) setPhoneDevCode(data.dev_code)
+      setPhoneStep('awaiting_code')
+      setCodeInput('')
+    } catch (err) {
+      setPhoneError('Network error — please try again')
+    } finally {
+      setPhoneLoading(false)
+    }
+  }
+
+  async function handleConfirmPhoneVerification() {
+    if (!session) return
+    setPhoneLoading(true)
+    setPhoneError(null)
+    try {
+      const jwt = (await getSession())?.access_token
+      const res = await fetch('/api/phone/confirm-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+        body: JSON.stringify({ code: codeInput }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setPhoneError(data.error || 'Invalid code'); return }
+      setUserPhone({ phone: data.phone, phone_verified: true })
+      setPhoneStep('idle')
+      setPhoneInput('')
+      setCodeInput('')
+      setPhoneDevCode(null)
+    } catch (err) {
+      setPhoneError('Network error — please try again')
+    } finally {
+      setPhoneLoading(false)
     }
   }
 
@@ -5515,6 +5695,109 @@ export default function App() {
                   </div>
                 </div>
                 <button className="profile-signout-btn" onClick={() => signOut()}>SIGN OUT</button>
+              </div>
+
+              {/* ── Phone Number ─────────────────────────────────── */}
+              <div className="phone-settings-panel">
+                <div className="phone-settings-header">PHONE NUMBER</div>
+
+                {phoneStep === 'idle' && (
+                  <>
+                    <div className="phone-current">
+                      {userPhone?.phone ? (
+                        <>
+                          <span className="phone-number">{userPhone.phone}</span>
+                          {userPhone.phone_verified
+                            ? <span className="phone-verified-badge">VERIFIED</span>
+                            : <span className="phone-unverified-badge">UNVERIFIED</span>
+                          }
+                        </>
+                      ) : (
+                        <span className="phone-empty">No phone number on file</span>
+                      )}
+                    </div>
+                    <button
+                      className="phone-edit-btn"
+                      onClick={() => { setPhoneInput(userPhone?.phone || ''); setPhoneStep('editing'); setPhoneError(null) }}
+                    >
+                      {userPhone?.phone ? 'CHANGE PHONE' : 'ADD PHONE'}
+                    </button>
+                  </>
+                )}
+
+                {phoneStep === 'editing' && (
+                  <>
+                    <div className="phone-field-row">
+                      <input
+                        className="phone-input"
+                        type="tel"
+                        placeholder="+1 (555) 000-0000"
+                        value={phoneInput}
+                        onChange={e => setPhoneInput(e.target.value)}
+                        disabled={phoneLoading}
+                      />
+                    </div>
+                    {phoneError && <div className="phone-error">{phoneError}</div>}
+                    <div className="phone-btn-row">
+                      <button
+                        className="phone-submit-btn"
+                        onClick={handleRequestPhoneVerification}
+                        disabled={phoneLoading || !phoneInput.trim()}
+                      >
+                        {phoneLoading ? 'SENDING…' : 'SEND CODE'}
+                      </button>
+                      <button
+                        className="phone-cancel-btn"
+                        onClick={() => { setPhoneStep('idle'); setPhoneError(null) }}
+                        disabled={phoneLoading}
+                      >
+                        CANCEL
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {phoneStep === 'awaiting_code' && (
+                  <>
+                    <div className="phone-code-hint">
+                      Enter the 6-digit code sent to <strong>{phoneInput}</strong>
+                    </div>
+                    {phoneDevCode && (
+                      <div className="phone-dev-banner">
+                        Dev mode — code: <strong>{phoneDevCode}</strong>
+                      </div>
+                    )}
+                    <div className="phone-field-row">
+                      <input
+                        className="phone-input"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        placeholder="000000"
+                        value={codeInput}
+                        onChange={e => setCodeInput(e.target.value.replace(/\D/g, ''))}
+                        disabled={phoneLoading}
+                      />
+                    </div>
+                    {phoneError && <div className="phone-error">{phoneError}</div>}
+                    <div className="phone-btn-row">
+                      <button
+                        className="phone-submit-btn"
+                        onClick={handleConfirmPhoneVerification}
+                        disabled={phoneLoading || codeInput.length !== 6}
+                      >
+                        {phoneLoading ? 'VERIFYING…' : 'VERIFY'}
+                      </button>
+                      <button
+                        className="phone-cancel-btn"
+                        onClick={() => { setPhoneStep('editing'); setPhoneError(null); setCodeInput('') }}
+                        disabled={phoneLoading}
+                      >
+                        BACK
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* ── Admin Panel ────────────────────────────────────── */}

@@ -67,6 +67,14 @@ const styles = `
     border-color: var(--amber);
   }
 
+  /* When a winner section is attached below, square off the bottom corners
+     and remove bottom margin so the two elements visually join */
+  .program-card.program-card-has-winners {
+    border-radius: 8px 8px 0 0;
+    margin-bottom: 0;
+    border-bottom-color: transparent;
+  }
+
   .program-card-main {
     flex: 1;
   }
@@ -165,6 +173,15 @@ const styles = `
 
   .btn-draw:hover { opacity: 0.88; }
   .btn-draw:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-redraw {
+    background: none;
+    color: var(--amber);
+    border: 1px solid var(--amber);
+    font-weight: 500;
+  }
+  .btn-redraw:hover { background: rgba(200, 130, 10, 0.1); }
+  .btn-redraw:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .program-entry-count {
     font-size: 28px;
@@ -318,21 +335,127 @@ const styles = `
     letter-spacing: 3px;
     text-transform: uppercase;
     color: var(--green-light);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .draw-result-count {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: none;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .draw-winner-card {
+    background: rgba(45, 90, 39, 0.12);
+    border: 1px solid rgba(45, 90, 39, 0.4);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .draw-winner-card:last-child { margin-bottom: 0; }
+
+  .draw-winner-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+  .draw-ticket-num {
+    color: var(--amber);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .draw-winner-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--green-light);
+  }
+
+  .draw-winner-date {
+    font-size: 10px;
+    color: var(--muted);
+    margin-left: auto;
+  }
+
+  .draw-winner-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+
+  @media (max-width: 600px) {
+    .draw-winner-fields { grid-template-columns: 1fr; }
+  }
+
+  .draw-winner-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .draw-field-label {
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .draw-field-value {
+    font-size: 12px;
+    color: var(--cream);
+    word-break: break-word;
+  }
+
+  /* Persistent collapsible winner section */
+  .winner-section {
+    border: 1px solid rgba(45, 90, 39, 0.4);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
     margin-bottom: 12px;
   }
 
-  .draw-winner-row {
+  .winner-toggle {
+    width: 100%;
+    background: rgba(45, 90, 39, 0.08);
+    border: none;
+    color: var(--green-light);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 10px 16px;
+    text-align: left;
+    cursor: pointer;
     display: flex;
-    gap: 16px;
-    padding: 8px 0;
-    border-bottom: 1px solid rgba(45, 90, 39, 0.3);
-    font-size: 12px;
-    color: var(--cream-2);
+    align-items: center;
+    gap: 8px;
+    transition: background 0.15s;
   }
 
-  .draw-winner-row:last-child { border-bottom: none; }
+  .winner-toggle:hover { background: rgba(45, 90, 39, 0.15); }
 
-  .draw-ticket-num { color: var(--amber); min-width: 40px; }
+  .winner-toggle-arrow {
+    font-size: 8px;
+    color: var(--muted);
+  }
+
+  .winner-list {
+    padding: 12px 16px 16px;
+    background: rgba(45, 90, 39, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
 
   .lotteries-loading {
     color: var(--muted);
@@ -413,7 +536,17 @@ export default function StoreLotteries({ storeProfile }) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [confirmDrawId, setConfirmDrawId] = useState(null)
   const [drawingId, setDrawingId] = useState(null)
-  const [drawResults, setDrawResults] = useState({}) // programId → winners[]
+  const [openWinners, setOpenWinners] = useState(new Set())
+  const [drawResults, setDrawResults] = useState({})  // programId → winners[] (session cache)
+
+  function toggleWinners(id) {
+    setOpenWinners(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   async function loadPrograms() {
     const { data } = await supabase
@@ -494,6 +627,8 @@ export default function StoreLotteries({ storeProfile }) {
     if (res.ok) {
       setDrawResults(prev => ({ ...prev, [programId]: data.winners }))
       await loadPrograms()
+      // Auto-expand the winner section for the program just drawn
+      setOpenWinners(prev => new Set([...prev, programId]))
     } else {
       alert(data.error || 'Draw failed')
     }
@@ -520,11 +655,14 @@ export default function StoreLotteries({ storeProfile }) {
   function ProgramCard({ p }) {
     const count = entryCounts[p.id] ?? '—'
     const isDrawing = drawingId === p.id
-    const result = drawResults[p.id]
+    const winners = p.winner_snapshot || drawResults[p.id]   // DB snapshot or session cache
+    const isOpen = openWinners.has(p.id)
+
+    const hasWinners = p.status === 'drawn' && winners && winners.length > 0
 
     return (
       <>
-        <div className={`program-card ${p.status === 'active' ? 'program-active' : ''}`}>
+        <div className={`program-card ${p.status === 'active' ? 'program-active' : ''}${hasWinners ? ' program-card-has-winners' : ''}`}>
           <div style={{ textAlign: 'center' }}>
             <div className="program-entry-count">{count}</div>
             <div className="program-entry-label">Entries</div>
@@ -560,27 +698,62 @@ export default function StoreLotteries({ storeProfile }) {
                 }
               </button>
             )}
+            {p.status === 'drawn' && (
+              <button
+                className="program-action-btn btn-redraw"
+                disabled={isDrawing}
+                onClick={() => setConfirmDrawId(p.id)}
+              >
+                {isDrawing
+                  ? <><span className="draw-spinning" />Drawing...</>
+                  : 'Re-draw'
+                }
+              </button>
+            )}
           </div>
         </div>
 
-        {result && (
-          <div className="draw-result">
-            <div className="draw-result-title">Draw Results — {p.bottle_name}</div>
-            {result.map((w, i) => (
-              <div key={i} className="draw-winner-row">
-                <span className="draw-ticket-num">#{w.ticket_number}</span>
-                <span>
-                  {w.claimed_by_phone
-                    ? w.claimed_by_phone.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3')
-                    : w.claimed_by_user_id
-                      ? 'Dram Scout user'
-                      : 'Anonymous'}
-                </span>
-                <span style={{ marginLeft: 'auto', color: 'var(--muted)', fontSize: '10px' }}>
-                  {w.claimed_at ? new Date(w.claimed_at).toLocaleDateString() : ''}
-                </span>
+        {/* Persistent collapsible winner section — visible on any drawn program that has a snapshot */}
+        {hasWinners && (
+          <div className="winner-section">
+            <button className="winner-toggle" onClick={() => toggleWinners(p.id)}>
+              <span className="winner-toggle-arrow">{isOpen ? '▼' : '▶'}</span>
+              WINNER{winners.length !== 1 ? 'S' : ''} ({winners.length})
+            </button>
+
+            {isOpen && (
+              <div className="winner-list">
+                {winners.map((w, i) => (
+                  <div key={i} className="draw-winner-card">
+                    <div className="draw-winner-header">
+                      <span className="draw-ticket-num">Ticket #{w.ticket_number ?? '—'}</span>
+                      {winners.length > 1 && (
+                        <span className="draw-winner-label">Winner {i + 1}</span>
+                      )}
+                      {w.claimed_at && (
+                        <span className="draw-winner-date">
+                          Entered {new Date(w.claimed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      )}
+                    </div>
+                    <div className="draw-winner-fields">
+                      <div className="draw-winner-field">
+                        <span className="draw-field-label">Name</span>
+                        <span className="draw-field-value">{w.display_name || '—'}</span>
+                      </div>
+                      <div className="draw-winner-field">
+                        <span className="draw-field-label">Email</span>
+                        <span className="draw-field-value">{w.email || '—'}</span>
+                      </div>
+                      <div className="draw-winner-field">
+                        <span className="draw-field-label">Phone</span>
+                        <span className="draw-field-value">{w.phone || '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
       </>
@@ -694,25 +867,31 @@ export default function StoreLotteries({ storeProfile }) {
       )}
 
       {/* Draw confirmation */}
-      {confirmDrawId && (
-        <div className="confirm-overlay">
-          <div className="confirm-box">
-            <div className="confirm-title">Run the Draw?</div>
-            <div className="confirm-body">
-              This will randomly select {programs.find(p => p.id === confirmDrawId)?.draw_winner_count ?? 1} winner(s) from {entryCounts[confirmDrawId] ?? 0} entries.
-              This action cannot be undone.
-            </div>
-            <div className="confirm-actions">
-              <button className="modal-cancel-btn" onClick={() => setConfirmDrawId(null)}>
-                Cancel
-              </button>
-              <button className="modal-submit-btn" onClick={() => handleDraw(confirmDrawId)}>
-                Run Draw
-              </button>
+      {confirmDrawId && (() => {
+        const confirmProgram = programs.find(p => p.id === confirmDrawId)
+        const isRedraw = confirmProgram?.status === 'drawn'
+        return (
+          <div className="confirm-overlay">
+            <div className="confirm-box">
+              <div className="confirm-title">{isRedraw ? 'Re-run the Draw?' : 'Run the Draw?'}</div>
+              <div className="confirm-body">
+                {isRedraw
+                  ? <>This will randomly select new winner{(confirmProgram?.draw_winner_count ?? 1) > 1 ? 's' : ''} from {entryCounts[confirmDrawId] ?? 0} entries and replace the previous results.</>
+                  : <>This will randomly select {confirmProgram?.draw_winner_count ?? 1} winner{(confirmProgram?.draw_winner_count ?? 1) > 1 ? 's' : ''} from {entryCounts[confirmDrawId] ?? 0} entries.</>
+                }
+              </div>
+              <div className="confirm-actions">
+                <button className="modal-cancel-btn" onClick={() => setConfirmDrawId(null)}>
+                  Cancel
+                </button>
+                <button className="modal-submit-btn" onClick={() => handleDraw(confirmDrawId)}>
+                  {isRedraw ? 'Re-draw' : 'Run Draw'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </>
   )
 }

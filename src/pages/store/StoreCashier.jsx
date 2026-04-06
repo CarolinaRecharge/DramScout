@@ -208,6 +208,7 @@ export default function StoreCashier({ storeProfile }) {
   const canvasRef = useRef(null)
   const realtimeRef = useRef(null)
   const timerRef = useRef(null)
+  const pollRef = useRef(null)
 
   useEffect(() => {
     supabase
@@ -250,6 +251,19 @@ export default function StoreCashier({ storeProfile }) {
       supabase.removeChannel(realtimeRef.current)
       realtimeRef.current = null
     }
+    if (pollRef.current) {
+      clearInterval(pollRef.current)
+      pollRef.current = null
+    }
+  }
+
+  function handleClaimed(ticketNumber) {
+    clearInterval(timerRef.current)
+    clearInterval(pollRef.current)
+    pollRef.current = null
+    setConfirmedInfo({ ticketNumber })
+    setQrState('confirmed')
+    cleanupRealtime()
   }
 
   async function handleGenerate() {
@@ -284,25 +298,39 @@ export default function StoreCashier({ storeProfile }) {
       bottleName: selectedProgram?.bottle_name || 'Allocated Bottle'
     })
 
-    // Subscribe to Realtime for this token
+    const token = data.token
+
+    // Primary: Supabase Realtime — fires instantly when the token is claimed.
+    // Requires migration 008 (REPLICA IDENTITY FULL + publication).
     const channel = supabase
-      .channel(`token-${data.token}`)
+      .channel(`token-${token}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'lottery_tokens',
-        filter: `token=eq.${data.token}`
+        filter: `token=eq.${token}`
       }, (payload) => {
         if (payload.new.status === 'claimed') {
-          clearInterval(timerRef.current)
-          setConfirmedInfo({ ticketNumber: payload.new.ticket_number })
-          setQrState('confirmed')
-          cleanupRealtime()
+          handleClaimed(payload.new.ticket_number)
         }
       })
       .subscribe()
 
     realtimeRef.current = channel
+
+    // Fallback: poll every 3 s in case the realtime event is missed.
+    // Uses store_own_tokens RLS — the store can SELECT their own tokens.
+    pollRef.current = setInterval(async () => {
+      const { data: row } = await supabase
+        .from('lottery_tokens')
+        .select('status, ticket_number')
+        .eq('token', token)
+        .single()
+      if (row?.status === 'claimed') {
+        handleClaimed(row.ticket_number)
+      }
+    }, 3000)
+
     setGenerating(false)
   }
 
@@ -310,8 +338,8 @@ export default function StoreCashier({ storeProfile }) {
     setQrState(null)
     setConfirmedInfo(null)
     setTimeLeft(null)
-    cleanupRealtime()
     clearInterval(timerRef.current)
+    cleanupRealtime()
   }
 
   function formatTime(secs) {
