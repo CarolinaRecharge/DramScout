@@ -1,4 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
+import { randomInt } from 'crypto'
+
+// Unbiased Fisher-Yates shuffle using a cryptographically secure RNG.
+function shuffle(arr) {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = randomInt(0, i + 1)  // uniform integer in [0, i]
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY
@@ -58,9 +69,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'No entries in this lottery' })
   }
 
-  // Fisher-Yates shuffle, pick winners
-  const shuffled = [...entries].sort(() => Math.random() - 0.5)
-  const winners = shuffled.slice(0, program.draw_winner_count)
+  // Unbiased Fisher-Yates shuffle with crypto RNG, then take the first N winners
+  const winners = shuffle(entries).slice(0, program.draw_winner_count)
   const winnerIds = winners
     .filter(w => w.claimed_by_user_id)
     .map(w => w.claimed_by_user_id)
