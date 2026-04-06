@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '../../supabase.js'
 
 const styles = `
   .bpm-root {}
@@ -211,6 +212,12 @@ const styles = `
     text-transform: uppercase;
   }
   .bpm-toggle-label.on { color: var(--amber); }
+  .bpm-toggle-label.featured { color: var(--green); }
+
+  /* Feature toggle — green accent */
+  .bpm-feature-wrap { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+  .bpm-toggle.feature input:checked + .bpm-toggle-slider { background: rgba(10,180,10,0.2); }
+  .bpm-toggle.feature input:checked + .bpm-toggle-slider::before { background: var(--green); }
 
   .bpm-publish-err {
     font-family: 'DM Mono', monospace;
@@ -345,17 +352,20 @@ export default function BarrelPicksManager({ storeProfile, session }) {
   const [publishErrors, setPublishErrors] = useState({})  // pickId -> string
   const navigate = useNavigate()
 
-  const storeId = storeProfile?.id || session?.user?.id
-
   useEffect(() => {
-    if (storeId) loadPicks()
-  }, [storeId])
+    loadPicks()
+  }, [])
+
+  async function getLiveAuth() {
+    const { data: { session: s } } = await supabase.auth.getSession()
+    return { token: s?.access_token, storeId: s?.user?.id }
+  }
 
   async function loadPicks() {
     setLoading(true)
     setError(null)
     try {
-      const token = session?.access_token
+      const { token, storeId } = await getLiveAuth()
       const res = await fetch(`/api/store/${storeId}/barrel-picks`, {
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -369,7 +379,7 @@ export default function BarrelPicksManager({ storeProfile, session }) {
   }
 
   async function patchPick(pickId, updates) {
-    const token = session?.access_token
+    const { token, storeId } = await getLiveAuth()
     const res = await fetch(`/api/store/${storeId}/barrel-picks/${pickId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -416,7 +426,7 @@ export default function BarrelPicksManager({ storeProfile, session }) {
 
   async function handleTogglePublish(pick) {
     setPublishErrors(prev => { const n = { ...prev }; delete n[pick.id]; return n })
-    const token = session?.access_token
+    const { token, storeId } = await getLiveAuth()
     const res = await fetch(`/api/store/${storeId}/barrel-picks/${pick.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -431,11 +441,21 @@ export default function BarrelPicksManager({ storeProfile, session }) {
     setPicks(prev => prev.map(p => p.id === pick.id ? { ...p, is_published: data.is_published } : p))
   }
 
+  async function handleToggleFeature(pick) {
+    const prevPicks = picks
+    setPicks(prev => prev.map(p => p.id === pick.id ? { ...p, is_featured: !p.is_featured } : p))
+    try {
+      await patchPick(pick.id, { is_featured: !pick.is_featured })
+    } catch {
+      setPicks(prevPicks)
+    }
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      const token = session?.access_token
+      const { token, storeId } = await getLiveAuth()
       const res = await fetch(`/api/store/${storeId}/barrel-picks/${deleteTarget.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
@@ -560,6 +580,21 @@ export default function BarrelPicksManager({ storeProfile, session }) {
                   {publishErrors[pick.id] && (
                     <div className="bpm-publish-err">{publishErrors[pick.id]}</div>
                   )}
+
+                  {/* Feature toggle — always shown regardless of location */}
+                  <div className="bpm-feature-wrap">
+                    <label className="bpm-toggle feature">
+                      <input
+                        type="checkbox"
+                        checked={!!pick.is_featured}
+                        onChange={() => handleToggleFeature(pick)}
+                      />
+                      <span className="bpm-toggle-slider" />
+                    </label>
+                    <span className={`bpm-toggle-label${pick.is_featured ? ' featured' : ''}`}>
+                      {pick.is_featured ? 'FEATURED (ALWAYS SHOWN)' : 'FEATURE'}
+                    </span>
+                  </div>
                 </div>
               </div>
 

@@ -125,6 +125,7 @@ export default async function handler(req, res) {
       store_notes: pick.store_notes,
       tasting_notes: pick.tasting_notes || [],
       status: pick.status,
+      is_featured: pick.is_featured || false,
       photo_urls: pick.photo_urls || [],
       primary_photo_url: pick.primary_photo_url,
       store_name: storeData?.store_name || null,
@@ -142,8 +143,11 @@ export default async function handler(req, res) {
   if (hasCoords) {
     const radiusMilesNum = parseFloat(radius_miles) || 50
     picks = picks
-      .filter(p => p.distance_miles === null || p.distance_miles <= radiusMilesNum)
+      .filter(p => p.is_featured || p.distance_miles === null || p.distance_miles <= radiusMilesNum)
       .sort((a, b) => {
+        // Featured picks always sort first
+        if (a.is_featured && !b.is_featured) return -1
+        if (!a.is_featured && b.is_featured) return 1
         if (a.distance_miles === null && b.distance_miles === null) return 0
         if (a.distance_miles === null) return 1
         if (b.distance_miles === null) return -1
