@@ -268,7 +268,8 @@ export default function BarrelPickForm({ storeProfile, session }) {
       try {
         const { data: { session: freshSession } } = await supabase.auth.getSession()
         const token = freshSession?.access_token
-        const res = await fetch(`/api/store/${storeId}/barrel-picks`, {
+        const liveStoreId = freshSession?.user?.id
+        const res = await fetch(`/api/store/${liveStoreId}/barrel-picks`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         const data = await res.json()
@@ -353,11 +354,12 @@ export default function BarrelPickForm({ storeProfile, session }) {
     const payload = buildPayload()
     const { data: { session: freshSession } } = await supabase.auth.getSession()
     const token = freshSession?.access_token
+    const liveStoreId = freshSession?.user?.id
 
     try {
       let pick
       if (isEdit) {
-        const res = await fetch(`/api/store/${storeId}/barrel-picks/${id}`, {
+        const res = await fetch(`/api/store/${liveStoreId}/barrel-picks/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify(payload),
@@ -366,7 +368,7 @@ export default function BarrelPickForm({ storeProfile, session }) {
         const d = await res.json()
         pick = d.pick
       } else {
-        const res = await fetch(`/api/store/${storeId}/barrel-picks`, {
+        const res = await fetch(`/api/store/${liveStoreId}/barrel-picks`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify(payload),
@@ -377,7 +379,7 @@ export default function BarrelPickForm({ storeProfile, session }) {
       }
 
       if (andPublish) {
-        const pubRes = await fetch(`/api/store/${storeId}/barrel-picks/${pick.id}`, {
+        const pubRes = await fetch(`/api/store/${liveStoreId}/barrel-picks/${pick.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ toggle_publish: true }),

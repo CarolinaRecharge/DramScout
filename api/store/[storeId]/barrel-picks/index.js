@@ -82,8 +82,12 @@ async function handleCreate(storeId, userId, req, res) {
     .single()
 
   if (error) {
-    console.error('store barrel-picks POST:', error.message)
-    return res.status(500).json({ error: 'Failed to create pick' })
+    console.error('store barrel-picks POST:', error.code, error.message)
+    // 42P01 = undefined_table (migration not yet run in Supabase)
+    const msg = error.code === '42P01'
+      ? 'Table not found — run migration 012_barrel_picks.sql in Supabase SQL editor'
+      : error.message || 'Failed to create pick'
+    return res.status(500).json({ error: msg })
   }
 
   return res.status(201).json({ pick: data })
