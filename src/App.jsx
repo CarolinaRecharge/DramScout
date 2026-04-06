@@ -3965,7 +3965,7 @@ export default function App() {
   const [otherBottle, setOtherBottle] = useState('')
   const [reporterHandle, setReporterHandle] = useState('')
   const [session, setSession] = useState(null)
-  const [userRole, setUserRole] = useState('drinker')
+  const [userRole, setUserRole] = useState('scout')
   const [adminSearch, setAdminSearch] = useState('')
   const [adminSearchResults, setAdminSearchResults] = useState([])
   const [allUsers, setAllUsers] = useState(null)         // null = not loaded yet
