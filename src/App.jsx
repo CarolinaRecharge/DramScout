@@ -20,6 +20,8 @@ import {
   deleteForumThread, deleteForumThreadAdmin,
   toggleForumReaction, subscribeToForumPosts,
   fetchUserPhone,
+  fetchUserHandle,
+  updateUserHandle,
 } from './supabase'
 
 const ADMIN_EMAIL = 'danielk.black95@gmail.com'
@@ -1439,16 +1441,14 @@ body {
   inset: 0;
   background: rgba(0,0,0,0.6);
   z-index: 300;
-  backdrop-filter: blur(2px);
-  opacity: 0;
-  transition: opacity 0.25s ease;
-  pointer-events: none;
+  animation: overlayFadeIn 0.25s ease forwards;
 }
 
-.sheet-overlay.open {
-  opacity: 1;
-  pointer-events: all;
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
+
 
 .sheet {
   position: fixed;
@@ -2851,14 +2851,7 @@ body {
   inset: 0;
   background: rgba(0,0,0,0.65);
   z-index: 400;
-  backdrop-filter: blur(3px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s;
-}
-.auth-overlay.open {
-  opacity: 1;
-  pointer-events: all;
+  animation: overlayFadeIn 0.2s ease forwards;
 }
 .auth-modal {
   position: fixed;
@@ -3963,7 +3956,7 @@ export default function App() {
   const [otherBottle, setOtherBottle] = useState('')
   const [reporterHandle, setReporterHandle] = useState('')
   const [session, setSession] = useState(null)
-  const [userRole, setUserRole] = useState('drinker')
+  const [userRole, setUserRole] = useState('scout')
   const [adminSearch, setAdminSearch] = useState('')
   const [adminSearchResults, setAdminSearchResults] = useState([])
   const [allUsers, setAllUsers] = useState(null)         // null = not loaded yet
@@ -3985,6 +3978,11 @@ export default function App() {
   const [notifLoading, setNotifLoading] = useState(false)
   const [pushSupported, setPushSupported] = useState(false)
   const [notifError, setNotifError] = useState('')
+  // Scout handle
+  const [handleInput, setHandleInput] = useState('')
+  const [handleSaving, setHandleSaving] = useState(false)
+  const [handleError, setHandleError] = useState(null)
+  const [handleSaved, setHandleSaved] = useState(false)
   // Phone registration
   const [userPhone, setUserPhone] = useState(null)
   const [phoneStep, setPhoneStep] = useState('idle')   // 'idle' | 'editing' | 'awaiting_code'
@@ -4089,7 +4087,8 @@ export default function App() {
         setDbReady(true)
         setAppLoading(false)
       }
-    ).catch(() => {
+    ).catch(err => {
+      console.error('DramScout: initial data load failed:', err)
       setDbSightings([])
       setAppLoading(false)
     })
@@ -4134,8 +4133,9 @@ export default function App() {
     const isOpera = /OPR\/|Opera\//.test(ua)
     setPushSupported(!isOpera && 'serviceWorker' in navigator && 'PushManager' in window)
     if (!session?.user) return
-    fetchNotificationPrefs(session.user.id).then(p => { if (p) setNotifPrefs(p) })
-    fetchUserPhone(session.user.id).then(p => { if (p) setUserPhone(p) })
+    fetchNotificationPrefs(session.user.id).then(p => { if (p) setNotifPrefs(p) }).catch(() => {})
+    fetchUserPhone(session.user.id).then(p => { if (p) setUserPhone(p) }).catch(() => {})
+    fetchUserHandle(session.user.id).then(h => { if (h) setReporterHandle(h) }).catch(() => {})
   }, [session])
 
   // ── Load all users when admin session is ready ────────────────────────
@@ -4149,12 +4149,19 @@ export default function App() {
     })
   }, [session, userRole])
 
-  // ── Pre-fill reporter handle from Google profile ───────────────────────
+  // ── Keep handleInput in sync with reporterHandle ─────────────────────────
+  useEffect(() => { setHandleInput(reporterHandle) }, [reporterHandle])
+
+  // ── Pre-fill reporter handle from Google profile ─────────────────────────
   useEffect(() => {
     if (session?.user?.user_metadata?.full_name && !reporterHandle) {
       const name = session.user.user_metadata.full_name
         .toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').slice(0, 30)
       setReporterHandle(name)
+      // Do NOT write to DB here — fetchUserHandle (fired in same render cycle) is
+      // async and may not have resolved yet, so reporterHandle appears empty and
+      // this would overwrite any handle the user explicitly saved. DB writes happen
+      // only when the user clicks SAVE HANDLE.
     }
   }, [session])
 
@@ -4640,6 +4647,24 @@ export default function App() {
       }
     } catch (err) {
       console.warn('unsubscribeFromPush:', err)
+    }
+  }
+
+  // ── Scout handle save ────────────────────────────────────────────────────
+  async function handleSaveHandle() {
+    const trimmed = handleInput.trim()
+    if (!trimmed) { setHandleError('Handle cannot be empty.'); return }
+    setHandleSaving(true)
+    setHandleError(null)
+    try {
+      await updateUserHandle(session.user.id, trimmed)
+      setReporterHandle(trimmed)
+      setHandleSaved(true)
+      setTimeout(() => setHandleSaved(false), 2000)
+    } catch (e) {
+      setHandleError('Failed to save. Please try again.')
+    } finally {
+      setHandleSaving(false)
     }
   }
 
@@ -5941,17 +5966,47 @@ export default function App() {
                 <div className="profile-user-info">
                   <div className="profile-name">{session.user.user_metadata?.full_name || 'Scout'}</div>
                   <div className="profile-email">{session.user.email}</div>
-                  <span
-                    className="role-badge"
-                    style={{ color: ROLE_LABELS[effectiveRole].color, borderColor: ROLE_LABELS[effectiveRole].color, background: ROLE_LABELS[effectiveRole].bg }}
-                  >
-                    {ROLE_LABELS[effectiveRole].label}
-                  </span>
-                  <div style={{ fontFamily: "'Courier Prime', monospace", fontSize: 9, color: 'var(--ghost)', marginTop: 3, letterSpacing: '0.04em' }}>
-                    {ROLE_LABELS[effectiveRole].desc}
-                  </div>
+                  {(() => {
+                    const rl = ROLE_LABELS[effectiveRole] || ROLE_LABELS.scout
+                    return (<>
+                      <span className="role-badge" style={{ color: rl.color, borderColor: rl.color, background: rl.bg }}>
+                        {rl.label}
+                      </span>
+                      <div style={{ fontFamily: "'Courier Prime', monospace", fontSize: 9, color: 'var(--ghost)', marginTop: 3, letterSpacing: '0.04em' }}>
+                        {rl.desc}
+                      </div>
+                    </>)
+                  })()}
                 </div>
                 <button className="profile-signout-btn" onClick={() => signOut()}>SIGN OUT</button>
+              </div>
+
+              {/* ── Scout Handle ─────────────────────────────────── */}
+              <div className="phone-settings-panel">
+                <div className="phone-settings-header">SCOUT HANDLE</div>
+                <div className="phone-current">
+                  <span className="phone-number">@{reporterHandle || '—'}</span>
+                </div>
+                <div className="phone-field-row">
+                  <input
+                    className="phone-input"
+                    type="text"
+                    placeholder="bourbonhunter_nc"
+                    value={handleInput}
+                    onChange={e => setHandleInput(e.target.value.replace(/\s/g, '_').replace(/[^a-z0-9_]/g, '').toLowerCase().slice(0, 30))}
+                    disabled={handleSaving}
+                  />
+                </div>
+                {handleError && <div className="phone-error">{handleError}</div>}
+                <div className="phone-btn-row">
+                  <button
+                    className="phone-submit-btn"
+                    onClick={handleSaveHandle}
+                    disabled={handleSaving || !handleInput.trim()}
+                  >
+                    {handleSaving ? 'SAVING…' : handleSaved ? 'SAVED ✓' : 'SAVE HANDLE'}
+                  </button>
+                </div>
               </div>
 
               {/* ── Phone Number ─────────────────────────────────── */}
@@ -6535,7 +6590,7 @@ export default function App() {
       </button>
 
       {/* ── BOTTOM SHEET ─────────────────────────────────────────────── */}
-      <div className={`sheet-overlay${sheetOpen ? ' open' : ''}`} onClick={closeSheet} />
+      {sheetOpen && <div className="sheet-overlay" onClick={closeSheet} />}
       <div
         ref={sheetRef}
         className={`sheet${sheetOpen ? ' open' : ''}`}
@@ -7129,7 +7184,7 @@ export default function App() {
       </div>
 
       {/* ── AUTH MODAL ───────────────────────────────────────────────── */}
-      <div className={`auth-overlay${showAuthModal ? ' open' : ''}`} onClick={() => setShowAuthModal(false)} />
+      {showAuthModal && <div className="auth-overlay" onClick={() => setShowAuthModal(false)} />}
       <div className={`auth-modal${showAuthModal ? ' open' : ''}`} role="dialog" aria-modal="true">
         <button className="auth-modal-close" onClick={() => setShowAuthModal(false)} aria-label="Close">×</button>
         <div className="auth-modal-brand">DRAM SCOUT</div>
