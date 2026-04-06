@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Filter } from 'bad-words'
+import ScoutTab from './components/ScoutTab.jsx'
 import {
   supabase, getFingerprint,
   fetchStores, fetchSightings, fetchEvents,
@@ -5598,6 +5599,11 @@ export default function App() {
           </button>
         ))}
       </div>
+
+      {/* ── BARREL PICKS SECTION (Scout tab only) ───────────────────── */}
+      {activeTab === 'scout' && (
+        <ScoutTab searchQuery={bottleSearch} />
+      )}
 
       {/* ── SIGHTINGS FEED ──────────────────────────────────────────── */}
       <section className="feed-section" style={{ display: activeTab === 'scout' ? undefined : 'none' }}>
