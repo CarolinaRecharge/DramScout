@@ -19,7 +19,10 @@ const SECTION_STYLES = `
     align-items: center;
     gap: 12px;
     padding: 16px 16px 10px;
+    cursor: pointer;
+    user-select: none;
   }
+  .bp-section-header:hover .bp-section-label { opacity: 0.8; }
   .bp-section-label {
     font-family: 'DM Mono', 'Courier Prime', monospace;
     font-size: 9px;
@@ -27,6 +30,7 @@ const SECTION_STYLES = `
     text-transform: uppercase;
     color: var(--gold);
     white-space: nowrap;
+    transition: opacity 0.15s;
   }
   .bp-section-rule {
     flex: 1;
@@ -34,6 +38,14 @@ const SECTION_STYLES = `
     background: var(--gold);
     opacity: 0.35;
   }
+  .bp-chevron {
+    flex-shrink: 0;
+    color: var(--gold);
+    opacity: 0.6;
+    font-size: 10px;
+    transition: transform 0.2s;
+  }
+  .bp-chevron.open { transform: rotate(180deg); }
 
   .bp-distillery-row {
     display: flex;
@@ -144,6 +156,7 @@ export default function ScoutTab({ searchQuery = '' }) {
   const [picks, setPicks] = useState([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(null)
+  const [expanded, setExpanded] = useState(true)
   const [distilleryFilter, setDistilleryFilter] = useState('All')
   const [location, setLocation] = useState(null)
   const [locationDenied, setLocationDenied] = useState(false)
@@ -229,12 +242,14 @@ export default function ScoutTab({ searchQuery = '' }) {
       <style>{SECTION_STYLES}</style>
 
       <div className="bp-section">
-        {/* Section header */}
-        <div className="bp-section-header">
+        {/* Section header — click to collapse/expand */}
+        <div className="bp-section-header" onClick={() => setExpanded(e => !e)}>
           <span className="bp-section-label">Barrel Picks Near You</span>
           <div className="bp-section-rule" />
+          <span className={`bp-chevron${expanded ? ' open' : ''}`}>▼</span>
         </div>
 
+        {expanded && <>
         {/* Location denied banner */}
         {locationDenied && (
           <div className="bp-location-banner">
@@ -294,6 +309,7 @@ export default function ScoutTab({ searchQuery = '' }) {
             </>
           )}
         </div>
+        </>}
       </div>
     </>
   )
