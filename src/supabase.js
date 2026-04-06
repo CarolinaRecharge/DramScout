@@ -313,6 +313,30 @@ export async function signInWithGoogle() {
   if (error) console.error('Google sign-in error:', error.message)
 }
 
+export async function signUpWithEmail(email, password, displayName) {
+  if (!supabase) return { error: { message: 'Supabase not configured' } }
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: displayName } },
+  })
+  return { data, error }
+}
+
+export async function signInWithEmail(email, password) {
+  if (!supabase) return { error: { message: 'Supabase not configured' } }
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  return { data, error }
+}
+
+export async function resetPassword(email) {
+  if (!supabase) return { error: { message: 'Supabase not configured' } }
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/reset-password`,
+  })
+  return { error }
+}
+
 export async function signOut() {
   if (!supabase) return
   await supabase.auth.signOut()

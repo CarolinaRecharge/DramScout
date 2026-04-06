@@ -7,7 +7,7 @@ import {
   postEvent, updateEvent, deleteEvent,
   fetchEventQueue, joinEventQueue, leaveEventQueue,
   subscribeToSightings,
-  signInWithGoogle, signOut, getSession, onAuthStateChange,
+  signInWithGoogle, signUpWithEmail, signInWithEmail, resetPassword, signOut, getSession, onAuthStateChange,
   fetchUserSightings, fetchUserFavorites, toggleStoreFavorite, deleteSighting,
   fetchUserRole, upsertUserRole, upsertProfile, searchProfiles, fetchRoleForUser,
   fetchAllProfilesWithRoles,
@@ -2829,6 +2829,221 @@ body {
 
 .profile-signin-google-btn:hover { background: var(--card); }
 
+.profile-signin-email-btn {
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: 14px 28px;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: border-color 0.15s, color 0.15s;
+}
+.profile-signin-email-btn:hover { border-color: var(--gold); color: var(--gold-light); }
+
+/* ─── AUTH MODAL ──────────────────────────────────────────────────────────── */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 400;
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.auth-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+.auth-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.96);
+  width: calc(100% - 40px);
+  max-width: 380px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  z-index: 410;
+  padding: 28px 24px 24px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.auth-modal.open {
+  opacity: 1;
+  pointer-events: all;
+  transform: translate(-50%, -50%) scale(1);
+}
+.auth-modal-brand {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.auth-modal-tabs {
+  display: flex;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--rule);
+}
+.auth-modal-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 0 10px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--ghost);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+.auth-modal-tab.active {
+  color: var(--gold-light);
+  border-bottom-color: var(--gold);
+}
+.auth-field-label {
+  display: block;
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--ghost);
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  margin-top: 12px;
+}
+.auth-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--page);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--paper);
+  font-family: 'Courier Prime', monospace;
+  font-size: 13px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.auth-input:focus { border-color: var(--gold); }
+.auth-error {
+  background: rgba(122,46,46,0.18);
+  border: 1px solid var(--urgent);
+  border-radius: 5px;
+  color: #e07070;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  padding: 9px 12px;
+  margin-top: 12px;
+  line-height: 1.5;
+}
+.auth-success-box {
+  background: rgba(46,90,46,0.22);
+  border: 1px solid #3a7a3a;
+  border-radius: 5px;
+  color: #70c870;
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 16px 14px;
+  margin-top: 8px;
+  line-height: 1.7;
+  text-align: center;
+}
+.auth-submit-btn {
+  width: 100%;
+  background: var(--gold);
+  color: var(--ink);
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 6px;
+  padding: 13px;
+  cursor: pointer;
+  margin-top: 18px;
+  transition: opacity 0.15s;
+}
+.auth-submit-btn:hover { opacity: 0.88; }
+.auth-submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+.auth-divider::before, .auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+}
+.auth-google-btn {
+  width: 100%;
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--ghost);
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.auth-google-btn:hover { border-color: var(--gold); color: var(--gold-light); }
+.auth-forgot-link {
+  display: block;
+  text-align: right;
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  color: var(--ghost);
+  letter-spacing: 0.06em;
+  margin-top: 6px;
+  cursor: pointer;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.auth-forgot-link:hover { color: var(--gold-light); }
+.auth-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--ghost);
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 6px;
+}
+.auth-modal-close:hover { color: var(--paper); }
+
 .profile-fav-store-row {
   display: flex;
   align-items: center;
@@ -3814,6 +4029,16 @@ export default function App() {
   const [selectedStore, setSelectedStore] = useState(null)
   const [showStorePicker, setShowStorePicker] = useState(false)
 
+  // Email auth modal
+  const [showAuthModal, setShowAuthModal]     = useState(false)
+  const [authMode, setAuthMode]               = useState('signin') // 'signin' | 'signup' | 'forgot'
+  const [authEmail, setAuthEmail]             = useState('')
+  const [authPassword, setAuthPassword]       = useState('')
+  const [authDisplayName, setAuthDisplayName] = useState('')
+  const [authLoading, setAuthLoading]         = useState(false)
+  const [authError, setAuthError]             = useState(null)
+  const [authSuccess, setAuthSuccess]         = useState(null)
+
   // Forum
   const [forumView, setForumView]                   = useState('categories')
   const [forumCategories, setForumCategories]       = useState([])
@@ -4301,6 +4526,38 @@ export default function App() {
     }, 600)
     // Scroll to top of page to show map
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // ── Email auth modal ───────────────────────────────────────────────────
+  function openAuthModal(mode = 'signin') {
+    setAuthMode(mode)
+    setAuthEmail('')
+    setAuthPassword('')
+    setAuthDisplayName('')
+    setAuthError(null)
+    setAuthSuccess(null)
+    setShowAuthModal(true)
+  }
+
+  async function handleEmailAuth(e) {
+    e?.preventDefault()
+    setAuthLoading(true)
+    setAuthError(null)
+    setAuthSuccess(null)
+    if (authMode === 'signup') {
+      const { error } = await signUpWithEmail(authEmail, authPassword, authDisplayName)
+      if (error) { setAuthError(error.message) }
+      else { setAuthSuccess('CHECK YOUR EMAIL TO CONFIRM YOUR ACCOUNT') }
+    } else if (authMode === 'signin') {
+      const { error } = await signInWithEmail(authEmail, authPassword)
+      if (error) { setAuthError(error.message) }
+      else { setShowAuthModal(false) }
+    } else if (authMode === 'forgot') {
+      const { error } = await resetPassword(authEmail)
+      if (error) { setAuthError(error.message) }
+      else { setAuthSuccess('PASSWORD RESET EMAIL SENT') }
+    }
+    setAuthLoading(false)
   }
 
   // ── Confirm sighting ───────────────────────────────────────────────────
@@ -5204,7 +5461,7 @@ export default function App() {
             </span>
           </button>
         ) : (
-          <button className="header-user" onClick={() => signInWithGoogle()}>
+          <button className="header-user" onClick={() => openAuthModal('signin')}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
               <circle cx="12" cy="8" r="4"/>
               <path d="M20 21a8 8 0 1 0-16 0"/>
@@ -6068,9 +6325,12 @@ export default function App() {
             </>
           ) : (
             <div className="profile-signin-prompt">
-              <p>SIGN IN WITH GOOGLE TO TRACK YOUR SIGHTINGS, SAVE FAVORITE STORES, AND RSVP TO BOURBON DROPS</p>
+              <p>SIGN IN TO TRACK YOUR SIGHTINGS, SAVE FAVORITE STORES, AND RSVP TO BOURBON DROPS</p>
               <button className="profile-signin-google-btn" onClick={() => signInWithGoogle()}>
                 SIGN IN WITH GOOGLE
+              </button>
+              <button className="profile-signin-email-btn" onClick={() => openAuthModal('signin')}>
+                SIGN IN WITH EMAIL
               </button>
             </div>
           )}
@@ -6866,6 +7126,108 @@ export default function App() {
             {editingEventId ? 'SAVE CHANGES' : 'POST EVENT'}
           </button>
         </div>
+      </div>
+
+      {/* ── AUTH MODAL ───────────────────────────────────────────────── */}
+      <div className={`auth-overlay${showAuthModal ? ' open' : ''}`} onClick={() => setShowAuthModal(false)} />
+      <div className={`auth-modal${showAuthModal ? ' open' : ''}`} role="dialog" aria-modal="true">
+        <button className="auth-modal-close" onClick={() => setShowAuthModal(false)} aria-label="Close">×</button>
+        <div className="auth-modal-brand">DRAM SCOUT</div>
+
+        {/* Tabs: Sign In / Create Account — hidden in forgot mode or after success */}
+        {!authSuccess && (
+          <div className="auth-modal-tabs">
+            <button
+              className={`auth-modal-tab${authMode === 'signin' || authMode === 'forgot' ? ' active' : ''}`}
+              onClick={() => { setAuthMode('signin'); setAuthError(null); setAuthSuccess(null) }}
+            >SIGN IN</button>
+            <button
+              className={`auth-modal-tab${authMode === 'signup' ? ' active' : ''}`}
+              onClick={() => { setAuthMode('signup'); setAuthError(null); setAuthSuccess(null) }}
+            >CREATE ACCOUNT</button>
+          </div>
+        )}
+
+        {/* Success state (shown after signup confirmation or reset email sent) */}
+        {authSuccess && (
+          <div className="auth-success-box">
+            {authSuccess}
+            <br /><br />
+            <button className="auth-forgot-link" style={{ textAlign: 'center', display: 'block', margin: '0 auto' }} onClick={() => setShowAuthModal(false)}>CLOSE</button>
+          </div>
+        )}
+
+        {/* Sign In Form */}
+        {!authSuccess && authMode === 'signin' && (
+          <>
+            <label className="auth-field-label">Email</label>
+            <input className="auth-input" type="email" autoComplete="username" value={authEmail}
+              onChange={e => setAuthEmail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleEmailAuth(e)}
+              placeholder="you@example.com" />
+            <label className="auth-field-label">Password</label>
+            <input className="auth-input" type="password" autoComplete="current-password" value={authPassword}
+              onChange={e => setAuthPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleEmailAuth(e)} />
+            <button className="auth-forgot-link"
+              onClick={() => { setAuthMode('forgot'); setAuthError(null) }}>Forgot password?</button>
+            {authError && <div className="auth-error">{authError}</div>}
+            <button className="auth-submit-btn" onClick={handleEmailAuth}
+              disabled={authLoading || !authEmail || !authPassword}>
+              {authLoading ? 'SIGNING IN…' : 'SIGN IN'}
+            </button>
+            <div className="auth-divider">or</div>
+            <button className="auth-google-btn" onClick={() => { setShowAuthModal(false); signInWithGoogle() }}>
+              CONTINUE WITH GOOGLE
+            </button>
+          </>
+        )}
+
+        {/* Sign Up Form */}
+        {!authSuccess && authMode === 'signup' && (
+          <>
+            <label className="auth-field-label">Display Name</label>
+            <input className="auth-input" type="text" autoComplete="name" value={authDisplayName}
+              onChange={e => setAuthDisplayName(e.target.value)}
+              placeholder="Your name or handle" />
+            <label className="auth-field-label">Email</label>
+            <input className="auth-input" type="email" autoComplete="username" value={authEmail}
+              onChange={e => setAuthEmail(e.target.value)}
+              placeholder="you@example.com" />
+            <label className="auth-field-label">Password</label>
+            <input className="auth-input" type="password" autoComplete="new-password" value={authPassword}
+              onChange={e => setAuthPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleEmailAuth(e)} />
+            {authError && <div className="auth-error">{authError}</div>}
+            <button className="auth-submit-btn" onClick={handleEmailAuth}
+              disabled={authLoading || !authEmail || !authPassword}>
+              {authLoading ? 'CREATING ACCOUNT…' : 'CREATE ACCOUNT'}
+            </button>
+            <div className="auth-divider">or</div>
+            <button className="auth-google-btn" onClick={() => { setShowAuthModal(false); signInWithGoogle() }}>
+              CONTINUE WITH GOOGLE
+            </button>
+          </>
+        )}
+
+        {/* Forgot Password Form */}
+        {!authSuccess && authMode === 'forgot' && (
+          <>
+            <div style={{ fontFamily: "'Courier Prime', monospace", fontSize: 9, letterSpacing: '0.1em', color: 'var(--ghost)', marginBottom: 14 }}>RESET PASSWORD</div>
+            <label className="auth-field-label">Your Email</label>
+            <input className="auth-input" type="email" autoComplete="username" value={authEmail}
+              onChange={e => setAuthEmail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleEmailAuth(e)}
+              placeholder="you@example.com" />
+            {authError && <div className="auth-error">{authError}</div>}
+            <button className="auth-submit-btn" onClick={handleEmailAuth}
+              disabled={authLoading || !authEmail}>
+              {authLoading ? 'SENDING…' : 'SEND RESET LINK'}
+            </button>
+            <button className="auth-forgot-link" style={{ marginTop: 12 }}
+              onClick={() => { setAuthMode('signin'); setAuthError(null) }}>← Back to sign in</button>
+          </>
+        )}
       </div>
     </div>
   )
