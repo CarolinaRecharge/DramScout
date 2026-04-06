@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { supabase } from '../../supabase.js'
 import BarrelPickPhotos from './BarrelPickPhotos.jsx'
 
 const styles = `
@@ -265,7 +266,8 @@ export default function BarrelPickForm({ storeProfile, session }) {
     if (!isEdit) return
     ;(async () => {
       try {
-        const token = session?.access_token
+        const { data: { session: freshSession } } = await supabase.auth.getSession()
+        const token = freshSession?.access_token
         const res = await fetch(`/api/store/${storeId}/barrel-picks`, {
           headers: { Authorization: `Bearer ${token}` },
         })
@@ -349,7 +351,8 @@ export default function BarrelPickForm({ storeProfile, session }) {
     setSaving(true)
 
     const payload = buildPayload()
-    const token = session?.access_token
+    const { data: { session: freshSession } } = await supabase.auth.getSession()
+    const token = freshSession?.access_token
 
     try {
       let pick
@@ -423,10 +426,10 @@ export default function BarrelPickForm({ storeProfile, session }) {
       <div className="bpf-fieldset">
         <div className="bpf-legend">Whiskey Details</div>
         <div className="bpf-grid">
-          <Field label="Distillery" required error={!form.distillery && saving ? 'Required' : null}>
+          <Field label="Distillery/Brand" required error={!form.distillery && saving ? 'Required' : null}>
             <input className={`bpf-input${!form.distillery && saving ? ' error' : ''}`} value={form.distillery} onChange={e => set('distillery', e.target.value)} placeholder="e.g. Buffalo Trace" />
           </Field>
-          <Field label="Brand" required>
+          <Field label="Label" required>
             <input className="bpf-input" value={form.brand} onChange={e => set('brand', e.target.value)} placeholder="e.g. Eagle Rare" />
           </Field>
           <Field label="Expression" helper="e.g. Single Barrel Select, Bottled in Bond">
