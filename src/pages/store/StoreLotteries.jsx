@@ -537,6 +537,7 @@ export default function StoreLotteries({ storeProfile }) {
   const [confirmDrawId, setConfirmDrawId] = useState(null)
   const [drawingId, setDrawingId] = useState(null)
   const [openWinners, setOpenWinners] = useState(new Set())
+  const [drawResults, setDrawResults] = useState({})  // programId → winners[] (session cache)
 
   function toggleWinners(id) {
     setOpenWinners(prev => {
@@ -624,6 +625,7 @@ export default function StoreLotteries({ storeProfile }) {
     setDrawingId(null)
 
     if (res.ok) {
+      setDrawResults(prev => ({ ...prev, [programId]: data.winners }))
       await loadPrograms()
       // Auto-expand the winner section for the program just drawn
       setOpenWinners(prev => new Set([...prev, programId]))
@@ -653,7 +655,7 @@ export default function StoreLotteries({ storeProfile }) {
   function ProgramCard({ p }) {
     const count = entryCounts[p.id] ?? '—'
     const isDrawing = drawingId === p.id
-    const winners = p.winner_snapshot   // persisted JSONB from DB
+    const winners = p.winner_snapshot || drawResults[p.id]   // DB snapshot or session cache
     const isOpen = openWinners.has(p.id)
 
     const hasWinners = p.status === 'drawn' && winners && winners.length > 0
