@@ -417,9 +417,10 @@ export default function BarrelPicksManager({ storeProfile, session }) {
   async function handleTogglePublish(pick) {
     setPublishErrors(prev => { const n = { ...prev }; delete n[pick.id]; return n })
     const token = session?.access_token
-    const res = await fetch(`/api/store/${storeId}/barrel-picks/${pick.id}/publish`, {
+    const res = await fetch(`/api/store/${storeId}/barrel-picks/${pick.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ toggle_publish: true }),
     })
     const data = await res.json()
     if (!res.ok || data.validation_errors) {

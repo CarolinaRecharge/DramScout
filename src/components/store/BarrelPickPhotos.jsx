@@ -268,10 +268,10 @@ export default function BarrelPickPhotos({ pick, storeId, session, onUpdate }) {
 
   async function handleSetPrimary(url) {
     const token = session?.access_token
-    const res = await fetch(`/api/store/${storeId}/barrel-picks/${pick.id}/primary-photo`, {
+    const res = await fetch(`/api/store/${storeId}/barrel-picks/${pick.id}/photos`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ primary_url: url }),
     })
     if (res.ok) {
       const data = await res.json()

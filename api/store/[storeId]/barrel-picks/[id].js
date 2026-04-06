@@ -5,12 +5,17 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// PATCH  /api/store/:storeId/barrel-picks/:id — partial update
-// DELETE /api/store/:storeId/barrel-picks/:id — hard delete (+ storage cleanup)
+// PATCH  /api/store/:storeId/barrel-picks/:id — partial field update
+//   Special case: body { toggle_publish: true } runs publish validation and
+//   toggles is_published, returning { is_published, validation_errors }.
+//   (publish.js merged here to stay within Vercel hobby function limit.)
+//   To split back out: move the toggle_publish branch to api/store/[storeId]/barrel-picks/[id]/publish.js
+//
+// DELETE /api/store/:storeId/barrel-picks/:id — hard delete + storage cleanup
+
 export default async function handler(req, res) {
   const { storeId, id } = req.query
 
-  // Auth required
   const authHeader = req.headers.authorization
   if (!authHeader) return res.status(401).json({ error: 'Unauthorized' })
   const jwt = authHeader.replace('Bearer ', '')
@@ -19,7 +24,12 @@ export default async function handler(req, res) {
 
   if (user.id !== storeId) return res.status(403).json({ error: 'Forbidden' })
 
-  if (req.method === 'PATCH') return handleUpdate(storeId, id, req, res)
+  if (req.method === 'PATCH') {
+    const body = req.body || {}
+    return body.toggle_publish
+      ? handleTogglePublish(storeId, id, res)
+      : handleUpdate(storeId, id, req, res)
+  }
   if (req.method === 'DELETE') return handleDelete(storeId, id, res)
   return res.status(405).json({ error: 'Method not allowed' })
 }
@@ -67,8 +77,48 @@ async function handleUpdate(storeId, id, req, res) {
   return res.status(200).json({ pick: data })
 }
 
+async function handleTogglePublish(storeId, id, res) {
+  const { data: pick, error: fetchError } = await supabaseAdmin
+    .from('barrel_picks')
+    .select('id, distillery, brand, proof, price_per_bottle, is_published')
+    .eq('id', id)
+    .eq('store_id', storeId)
+    .single()
+
+  if (fetchError || !pick) return res.status(404).json({ error: 'Pick not found' })
+
+  const targetPublished = !pick.is_published
+
+  // Validate required fields before allowing publish
+  if (targetPublished) {
+    const validationErrors = []
+    if (!pick.distillery) validationErrors.push('distillery')
+    if (!pick.brand) validationErrors.push('brand')
+    if (!pick.proof) validationErrors.push('proof')
+    if (!pick.price_per_bottle) validationErrors.push('price_per_bottle')
+
+    if (validationErrors.length > 0) {
+      return res.status(422).json({ is_published: false, validation_errors: validationErrors })
+    }
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('barrel_picks')
+    .update({ is_published: targetPublished })
+    .eq('id', id)
+    .eq('store_id', storeId)
+    .select('id, is_published')
+    .single()
+
+  if (error) {
+    console.error('barrel-picks publish PATCH:', error.message)
+    return res.status(500).json({ error: 'Failed to update publish status' })
+  }
+
+  return res.status(200).json({ is_published: data.is_published, validation_errors: null })
+}
+
 async function handleDelete(storeId, id, res) {
-  // Fetch pick first to get photo_urls for storage cleanup
   const { data: pick, error: fetchError } = await supabaseAdmin
     .from('barrel_picks')
     .select('id, photo_urls')
@@ -83,7 +133,6 @@ async function handleDelete(storeId, id, res) {
   // Delete associated storage objects
   if (pick.photo_urls && pick.photo_urls.length > 0) {
     const storagePaths = pick.photo_urls.map(url => {
-      // Extract path from public URL: .../barrel-pick-photos/{path}
       const match = url.match(/barrel-pick-photos\/(.+)$/)
       return match ? match[1] : null
     }).filter(Boolean)
@@ -92,15 +141,12 @@ async function handleDelete(storeId, id, res) {
       const { error: storageError } = await supabaseAdmin.storage
         .from('barrel-pick-photos')
         .remove(storagePaths)
-
       if (storageError) {
         console.error('barrel-picks storage delete:', storageError.message)
-        // Continue with DB delete even if storage cleanup partially fails
       }
     }
   }
 
-  // Hard delete the pick
   const { error: deleteError } = await supabaseAdmin
     .from('barrel_picks')
     .delete()

@@ -6,13 +6,16 @@ const supabaseAdmin = createClient(
 )
 
 // POST   /api/store/:storeId/barrel-picks/:id/photos
-//   Body: { urls: string[] } — public URLs already uploaded to Supabase Storage
-//   by the frontend using the authenticated Supabase client directly.
-//   Appends URLs to photo_urls array; sets primary_photo_url if not yet set.
-//   Max 5 photos total.
+//   Body: { urls: string[] } — register URLs already uploaded to Supabase Storage.
+//   Appends to photo_urls; sets primary_photo_url if not yet set. Max 5 total.
 //
 // DELETE /api/store/:storeId/barrel-picks/:id/photos
-//   Body: { url: string } — remove a specific photo URL, delete from storage.
+//   Body: { url: string } — remove a specific photo URL and delete from storage.
+//
+// PATCH  /api/store/:storeId/barrel-picks/:id/photos
+//   Body: { primary_url: string } — promote an existing photo to primary position.
+//   (Merged from primary-photo.js to stay within Vercel hobby function limit.)
+//   To split back out: move the PATCH branch to api/store/[storeId]/barrel-picks/[id]/primary-photo.js
 
 export default async function handler(req, res) {
   const { storeId, id } = req.query
@@ -27,6 +30,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'POST') return handleAddPhotos(storeId, id, req, res)
   if (req.method === 'DELETE') return handleRemovePhoto(storeId, id, req, res)
+  if (req.method === 'PATCH') return handleSetPrimary(storeId, id, req, res)
   return res.status(405).json({ error: 'Method not allowed' })
 }
 
@@ -112,6 +116,41 @@ async function handleRemovePhoto(storeId, id, req, res) {
   if (error) {
     console.error('barrel-picks photos DELETE:', error.message)
     return res.status(500).json({ error: 'Failed to update photo URLs' })
+  }
+
+  return res.status(200).json({ photo_urls: data.photo_urls, primary_photo_url: data.primary_photo_url })
+}
+
+async function handleSetPrimary(storeId, id, req, res) {
+  const { primary_url: url } = req.body || {}
+  if (!url) return res.status(400).json({ error: 'primary_url is required' })
+
+  const { data: pick, error: fetchError } = await supabaseAdmin
+    .from('barrel_picks')
+    .select('id, photo_urls')
+    .eq('id', id)
+    .eq('store_id', storeId)
+    .single()
+
+  if (fetchError || !pick) return res.status(404).json({ error: 'Pick not found' })
+
+  if (!(pick.photo_urls || []).includes(url)) {
+    return res.status(400).json({ error: 'URL not in photo_urls array' })
+  }
+
+  const reordered = [url, ...(pick.photo_urls || []).filter(u => u !== url)]
+
+  const { data, error } = await supabaseAdmin
+    .from('barrel_picks')
+    .update({ photo_urls: reordered, primary_photo_url: url })
+    .eq('id', id)
+    .eq('store_id', storeId)
+    .select('photo_urls, primary_photo_url')
+    .single()
+
+  if (error) {
+    console.error('barrel-picks primary-photo PATCH:', error.message)
+    return res.status(500).json({ error: 'Failed to update primary photo' })
   }
 
   return res.status(200).json({ photo_urls: data.photo_urls, primary_photo_url: data.primary_photo_url })

@@ -374,9 +374,10 @@ export default function BarrelPickForm({ storeProfile, session }) {
       }
 
       if (andPublish) {
-        const pubRes = await fetch(`/api/store/${storeId}/barrel-picks/${pick.id}/publish`, {
+        const pubRes = await fetch(`/api/store/${storeId}/barrel-picks/${pick.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ toggle_publish: true }),
         })
         const pubData = await pubRes.json()
         if (!pubRes.ok || pubData.validation_errors) {
