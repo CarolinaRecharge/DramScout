@@ -4,6 +4,8 @@ import { supabase } from '../../supabase.js'
 import StoreDashboard from './StoreDashboard.jsx'
 import StoreLotteries from './StoreLotteries.jsx'
 import StoreCashier from './StoreCashier.jsx'
+import BarrelPicksManager from '../../components/store/BarrelPicksManager.jsx'
+import BarrelPickForm from '../../components/store/BarrelPickForm.jsx'
 import './store-vars.css'
 
 const styles = `
@@ -129,6 +131,7 @@ export default function StorePortal() {
     { label: 'Dashboard', path: '/store' },
     { label: 'Lotteries', path: '/store/lotteries' },
     { label: 'Cashier', path: '/store/cashier' },
+    { label: 'Barrel Picks', path: '/store/barrel-picks' },
   ]
 
   return (
@@ -164,7 +167,7 @@ export default function StorePortal() {
           {navItems.map(item => (
             <span
               key={item.path}
-              className={`portal-nav-item ${currentPath === item.path ? 'portal-nav-active' : ''}`}
+              className={`portal-nav-item ${currentPath.startsWith(item.path) && (item.path !== '/store' || currentPath === '/store') ? 'portal-nav-active' : ''}`}
               onClick={() => navigate(item.path)}
             >
               {item.label}
@@ -177,6 +180,9 @@ export default function StorePortal() {
             <Route index element={<StoreDashboard storeProfile={storeProfile} />} />
             <Route path="lotteries" element={<StoreLotteries storeProfile={storeProfile} />} />
             <Route path="cashier" element={<StoreCashier storeProfile={storeProfile} />} />
+            <Route path="barrel-picks" element={<BarrelPicksManager storeProfile={storeProfile} session={session} />} />
+            <Route path="barrel-picks/new" element={<BarrelPickForm storeProfile={storeProfile} session={session} />} />
+            <Route path="barrel-picks/:id/edit" element={<BarrelPickForm storeProfile={storeProfile} session={session} />} />
           </Routes>
         </div>
       </div>

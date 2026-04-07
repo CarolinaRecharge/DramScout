@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Filter } from 'bad-words'
+import ScoutTab from './components/ScoutTab.jsx'
 import {
   supabase, getFingerprint,
   fetchStores, fetchSightings, fetchEvents,
@@ -432,7 +433,18 @@ body {
   align-items: center;
   gap: 12px;
   padding: 16px 16px 12px;
+  cursor: pointer;
+  user-select: none;
 }
+.feed-header:hover .feed-header-label { opacity: 0.8; }
+.feed-header-chevron {
+  flex-shrink: 0;
+  color: var(--gold);
+  opacity: 0.6;
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+.feed-header-chevron.open { transform: rotate(180deg); }
 
 .feed-header-label {
   font-family: 'Courier Prime', monospace;
@@ -3926,6 +3938,7 @@ function MyLotteryEntries({ userId }) {
 // ─── MAIN APP ──────────────────────────────────────────────────────────────
 export default function App() {
   const [activeTab, setActiveTab] = useState('scout')
+  const [sightingsExpanded, setSightingsExpanded] = useState(false)
   const [rsvpd, setRsvpd] = useState(new Set())
 
   // ── Supabase data (null = not loaded yet / not configured) ─────────────
@@ -5599,15 +5612,21 @@ export default function App() {
         ))}
       </div>
 
+      {/* ── BARREL PICKS SECTION (Scout tab only) ───────────────────── */}
+      {activeTab === 'scout' && (
+        <ScoutTab searchQuery={bottleSearch} />
+      )}
+
       {/* ── SIGHTINGS FEED ──────────────────────────────────────────── */}
       <section className="feed-section" style={{ display: activeTab === 'scout' ? undefined : 'none' }}>
-        <div className="feed-header">
+        <div className="feed-header" onClick={() => setSightingsExpanded(e => !e)}>
           <span className="feed-header-label">RECENT SIGHTINGS</span>
           <span className="feed-header-meta">{filteredSightings.length} REPORTS · LAST 7 DAYS</span>
           <div className="feed-header-rule" />
+          <span className={`feed-header-chevron${sightingsExpanded ? ' open' : ''}`}>▼</span>
         </div>
 
-        {filteredSightings.slice(0, visibleCount).map(s => {
+        {sightingsExpanded && filteredSightings.slice(0, visibleCount).map(s => {
           const hoursOld = (now - s.createdAt) / (1000 * 60 * 60)
           const tier = getFreshnessTier(hoursOld)
           const isConfirmed = confirmed.has(s.id)
@@ -5676,13 +5695,13 @@ export default function App() {
           )
         })}
 
-        {visibleCount < filteredSightings.length && (
+        {sightingsExpanded && visibleCount < filteredSightings.length && (
           <button className="load-more-btn" onClick={() => setVisibleCount(v => v + 10)}>
             LOAD {Math.min(10, filteredSightings.length - visibleCount)} MORE SIGHTINGS
           </button>
         )}
 
-        {filteredSightings.length === 0 && (
+        {sightingsExpanded && filteredSightings.length === 0 && (
           <div style={{ padding: '40px 20px', textAlign: 'center', fontFamily: "'Courier Prime', monospace", color: 'var(--ghost)', fontSize: '12px', letterSpacing: '0.08em' }}>
             NO SIGHTINGS FOUND<br />
             <span style={{ fontSize: '10px', marginTop: '8px', display: 'block', opacity: 0.6 }}>BE THE FIRST TO POST ONE</span>
