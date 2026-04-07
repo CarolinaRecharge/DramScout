@@ -40,6 +40,12 @@ async function handleAddPhotos(storeId, id, req, res) {
     return res.status(400).json({ error: 'urls array is required' })
   }
 
+  // Ensure bucket exists (idempotent — error means it already exists, which is fine)
+  await supabaseAdmin.storage.createBucket('barrel-pick-photos', {
+    public: true,
+    fileSizeLimit: 8388608, // 8 MB
+  })
+
   const { data: pick, error: fetchError } = await supabaseAdmin
     .from('barrel_picks')
     .select('id, photo_urls, primary_photo_url')
