@@ -11,7 +11,7 @@ const CARD_STYLES = `
     overflow: hidden;
     margin-bottom: 12px;
     transition: border-color 0.2s;
-    cursor: default;
+    cursor: pointer;
     display: flex;
     flex-direction: row;
     align-items: stretch;
@@ -287,7 +287,7 @@ const CARD_STYLES = `
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.95);
-    z-index: 9000;
+    z-index: 9200;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -346,6 +346,141 @@ const CARD_STYLES = `
   }
   .bp-lightbox-prev { left: 8px; }
   .bp-lightbox-next { right: 8px; }
+
+  /* ── Detail modal ── */
+  .bp-detail-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 9050;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; box-sizing: border-box;
+  }
+  .bp-detail-modal {
+    background: var(--card);
+    border: 1px solid var(--worn);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex; flex-direction: row;
+    max-width: 880px; width: 100%;
+    max-height: 88vh;
+    position: relative;
+  }
+  .bp-detail-close {
+    position: absolute; top: 14px; right: 14px;
+    font-size: 18px; color: var(--paper);
+    background: rgba(0,0,0,0.55); border: none; cursor: pointer;
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 2; line-height: 1;
+  }
+  .bp-detail-photo-sec {
+    width: 45%; flex-shrink: 0; position: relative;
+    background: var(--card-2); overflow: hidden;
+    min-height: 300px;
+  }
+  .bp-detail-photo-img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    cursor: zoom-in;
+  }
+  .bp-detail-photo-ph {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px;
+  }
+  .bp-detail-photo-ph-text {
+    font-family: 'DM Mono', 'Courier Prime', monospace;
+    font-size: 9px; letter-spacing: 1.5px; color: var(--ghost);
+    text-transform: uppercase;
+  }
+  .bp-detail-prev, .bp-detail-next {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    font-size: 26px; color: rgba(255,255,255,0.75);
+    background: rgba(0,0,0,0.4); border: none; cursor: pointer;
+    padding: 8px 10px; border-radius: 4px; line-height: 1; z-index: 1;
+    user-select: none;
+  }
+  .bp-detail-prev { left: 8px; }
+  .bp-detail-next { right: 8px; }
+  .bp-detail-photo-dots {
+    position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 6px;
+  }
+  .bp-detail-photo-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(255,255,255,0.35); cursor: pointer; transition: background 0.2s;
+  }
+  .bp-detail-photo-dot.active { background: rgba(255,255,255,0.9); }
+  .bp-detail-info {
+    flex: 1; overflow-y: auto; padding: 24px 20px;
+    min-width: 0; display: flex; flex-direction: column;
+  }
+  .bp-detail-row1 {
+    display: flex; align-items: flex-start;
+    justify-content: space-between; margin-bottom: 6px; gap: 8px;
+  }
+  .bp-detail-brand {
+    font-family: 'Playfair Display', 'Cormorant Garamond', serif;
+    font-weight: 700; font-size: 22px; color: var(--paper);
+    flex: 1; min-width: 0;
+  }
+  .bp-detail-row2 {
+    font-family: 'DM Mono', 'Courier Prime', monospace;
+    font-size: 11px; color: var(--ghost);
+    margin-bottom: 12px; letter-spacing: 0.03em;
+  }
+  .bp-detail-row3 {
+    display: flex; align-items: baseline;
+    justify-content: space-between; margin-bottom: 10px;
+  }
+  .bp-detail-proof {
+    font-family: 'DM Mono', 'Courier Prime', monospace;
+    font-size: 10px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase;
+  }
+  .bp-detail-price-block { text-align: right; }
+  .bp-detail-price {
+    font-family: 'Playfair Display', 'Cormorant Garamond', serif;
+    font-weight: 700; font-size: 20px; color: var(--gold-light);
+  }
+  .bp-detail-msrp {
+    font-family: 'DM Mono', 'Courier Prime', monospace;
+    font-size: 10px; color: var(--ghost);
+    text-decoration: line-through; display: block; text-align: right;
+  }
+  .bp-detail-row4 {
+    font-family: 'Libre Baskerville', 'Cormorant Garamond', serif;
+    font-style: italic; font-size: 13px; color: var(--parchment); margin-bottom: 10px;
+  }
+  .bp-detail-notes {
+    font-family: 'Libre Baskerville', 'Cormorant Garamond', serif;
+    font-size: 13px; color: var(--ghost); margin-bottom: 12px; line-height: 1.6;
+  }
+  .bp-detail-chips {
+    display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px;
+  }
+  .bp-detail-divider {
+    border: none; border-top: 1px solid var(--rule); margin: 10px 0;
+  }
+  .bp-detail-footer {
+    display: flex; align-items: flex-start; justify-content: space-between; margin-top: auto;
+  }
+  .bp-detail-store-name {
+    font-family: 'DM Mono', 'Courier Prime', monospace;
+    font-size: 11px; color: var(--parchment); display: flex; align-items: center; gap: 6px;
+  }
+  .bp-detail-store-dist {
+    font-family: 'DM Mono', 'Courier Prime', monospace;
+    font-size: 10px; color: var(--ghost); margin-top: 2px; padding-left: 12px;
+  }
+  @media (max-width: 640px) {
+    .bp-detail-overlay { padding: 0; align-items: flex-end; }
+    .bp-detail-modal {
+      flex-direction: column;
+      max-height: 95vh; border-radius: 16px 16px 0 0;
+      width: 100%; max-width: 100%;
+    }
+    .bp-detail-photo-sec { width: 100%; height: 260px; flex-shrink: 0; min-height: unset; }
+    .bp-detail-close { top: 10px; right: 10px; }
+  }
 `
 
 const STATUS_LABEL = {
@@ -372,6 +507,8 @@ export default function BarrelPickCard({ pick, session, onReported }) {
   const [reportOpen, setReportOpen] = useState(false)
   const [reported, setReported] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [detailPhotoIndex, setDetailPhotoIndex] = useState(0)
 
   const photos = pick.photo_urls || []
   const hasPhotos = photos.length > 0
@@ -427,13 +564,10 @@ export default function BarrelPickCard({ pick, session, onReported }) {
     <>
       <style>{CARD_STYLES}</style>
 
-      <div className="bp-card">
+      <div className="bp-card" onClick={() => setDetailOpen(true)}>
         {/* ── Photo column (left) ── */}
         {hasPhotos ? (
-          <div
-            className="bp-photo-col"
-            onClick={() => photos.length > 1 ? advancePhoto() : openLightbox(photoIndex)}
-          >
+          <div className="bp-photo-col">
             <img
               className="bp-photo-img"
               src={photos[photoIndex]}
@@ -498,7 +632,7 @@ export default function BarrelPickCard({ pick, session, onReported }) {
                 {pick.store_notes}
               </div>
               {pick.store_notes.length > 100 && (
-                <button className="bp-notes-toggle" onClick={() => setNotesExpanded(e => !e)}>
+                <button className="bp-notes-toggle" onClick={e => { e.stopPropagation(); setNotesExpanded(v => !v) }}>
                   {notesExpanded ? 'Show less' : 'Read more'}
                 </button>
               )}
@@ -532,7 +666,7 @@ export default function BarrelPickCard({ pick, session, onReported }) {
             </div>
 
             {/* Community report */}
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
               {reported ? (
                 <button className="bp-report-btn reported">Reported ✓</button>
               ) : (
@@ -587,6 +721,141 @@ export default function BarrelPickCard({ pick, session, onReported }) {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {/* ── Detail modal ── */}
+      {detailOpen && (
+        <div className="bp-detail-overlay" onClick={() => setDetailOpen(false)}>
+          <div className="bp-detail-modal" onClick={e => e.stopPropagation()}>
+            <button className="bp-detail-close" onClick={() => setDetailOpen(false)}>✕</button>
+
+            {/* Photo section */}
+            <div className="bp-detail-photo-sec">
+              {hasPhotos ? (
+                <>
+                  <img
+                    className="bp-detail-photo-img"
+                    src={photos[detailPhotoIndex]}
+                    alt={`${pick.brand} barrel pick`}
+                    onClick={() => openLightbox(detailPhotoIndex)}
+                  />
+                  {photos.length > 1 && (
+                    <>
+                      <button
+                        className="bp-detail-prev"
+                        onClick={e => { e.stopPropagation(); setDetailPhotoIndex(i => (i - 1 + photos.length) % photos.length) }}
+                      >‹</button>
+                      <button
+                        className="bp-detail-next"
+                        onClick={e => { e.stopPropagation(); setDetailPhotoIndex(i => (i + 1) % photos.length) }}
+                      >›</button>
+                      <div className="bp-detail-photo-dots">
+                        {photos.map((_, i) => (
+                          <div
+                            key={i}
+                            className={`bp-detail-photo-dot${i === detailPhotoIndex ? ' active' : ''}`}
+                            onClick={e => { e.stopPropagation(); setDetailPhotoIndex(i) }}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="bp-detail-photo-ph">
+                  <GlencairnIcon color="var(--worn)" />
+                  <span className="bp-detail-photo-ph-text">No Photo</span>
+                </div>
+              )}
+            </div>
+
+            {/* Info section */}
+            <div className="bp-detail-info">
+              {/* Row 1: brand + status */}
+              <div className="bp-detail-row1">
+                <span className="bp-detail-brand">{pick.brand}</span>
+                <span className={`bp-status-badge bp-status-${pick.status}`}>
+                  {STATUS_LABEL[pick.status] || pick.status}
+                </span>
+              </div>
+
+              {/* Row 2: distillery · expression · age */}
+              {row2Parts.length > 0 && (
+                <div className="bp-detail-row2">{row2Parts.join(' · ')}</div>
+              )}
+
+              {/* Row 3: proof + price */}
+              <div className="bp-detail-row3">
+                <span className="bp-detail-proof">{pick.proof}° PROOF</span>
+                <div className="bp-detail-price-block">
+                  {pick.price_per_bottle && (
+                    <span className="bp-detail-price">${Number(pick.price_per_bottle).toFixed(2)}</span>
+                  )}
+                  {pick.msrp && (
+                    <span className="bp-detail-msrp">MSRP ${Number(pick.msrp).toFixed(2)}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Row 4: label · barrel */}
+              {(pick.label_name || pick.barrel_number) && (
+                <div className="bp-detail-row4">
+                  {[pick.label_name && `"${pick.label_name}"`, pick.barrel_number && `Barrel #${pick.barrel_number}`]
+                    .filter(Boolean).join(' · ')}
+                </div>
+              )}
+
+              {/* Store notes — fully expanded */}
+              {pick.store_notes && (
+                <div className="bp-detail-notes">{pick.store_notes}</div>
+              )}
+
+              {/* All tasting chips */}
+              {(pick.tasting_notes || []).length > 0 && (
+                <div className="bp-detail-chips">
+                  {(pick.tasting_notes || []).map(note => (
+                    <span key={note} className="bp-tasting-chip">{note}</span>
+                  ))}
+                </div>
+              )}
+
+              <hr className="bp-detail-divider" />
+
+              {/* Footer: store info + report button */}
+              <div className="bp-detail-footer">
+                <div className="bp-store-info">
+                  <div className="bp-detail-store-name">
+                    <span className="bp-store-dot" />
+                    {pick.store_name || 'Local Store'}
+                  </div>
+                  {pick.distance_miles != null && (
+                    <div className="bp-detail-store-dist">{pick.distance_miles} mi away</div>
+                  )}
+                </div>
+                <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+                  {reported ? (
+                    <button className="bp-report-btn reported">Reported ✓</button>
+                  ) : (
+                    <button
+                      className="bp-report-btn"
+                      onClick={() => setReportOpen(o => !o)}
+                      disabled={reportLoading}
+                    >
+                      👍 Still there?
+                    </button>
+                  )}
+                  {reportOpen && !reported && (
+                    <div className="bp-report-popover">
+                      <button className="bp-report-option" onClick={() => submitReport('still_available')}>✓ Still Available</button>
+                      <button className="bp-report-option" onClick={() => submitReport('low_stock')}>↓ Going Fast</button>
+                      <button className="bp-report-option" onClick={() => submitReport('sold_out')}>✗ Sold Out</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </>
