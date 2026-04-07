@@ -12,27 +12,33 @@ const CARD_STYLES = `
     margin-bottom: 12px;
     transition: border-color 0.2s;
     cursor: default;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    min-height: 150px;
   }
   .bp-card:hover { border-color: var(--gold); }
 
-  /* ── Photo strip ── */
-  .bp-photo-strip {
+  /* ── Photo column (left) ── */
+  .bp-photo-col {
+    width: 110px;
+    flex-shrink: 0;
     position: relative;
-    width: 100%;
-    height: 180px;
     overflow: hidden;
     cursor: pointer;
     background: var(--card-2);
   }
   .bp-photo-img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
   }
   .bp-photo-placeholder {
-    width: 100%;
-    height: 100px;
+    width: 110px;
+    flex-shrink: 0;
     background: var(--card-2);
     display: flex;
     flex-direction: column;
@@ -42,30 +48,32 @@ const CARD_STYLES = `
   }
   .bp-photo-placeholder-text {
     font-family: 'DM Mono', 'Courier Prime', monospace;
-    font-size: 9px;
-    letter-spacing: 2px;
+    font-size: 8px;
+    letter-spacing: 1.5px;
     color: var(--ghost);
     text-transform: uppercase;
+    text-align: center;
+    padding: 0 6px;
   }
   .bp-photo-dots {
     position: absolute;
-    bottom: 8px;
+    bottom: 6px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 5px;
+    gap: 4px;
   }
   .bp-photo-dot {
-    width: 5px;
-    height: 5px;
+    width: 4px;
+    height: 4px;
     border-radius: 50%;
     background: rgba(255,255,255,0.4);
     transition: background 0.2s;
   }
   .bp-photo-dot.active { background: rgba(255,255,255,0.9); }
 
-  /* ── Card body ── */
-  .bp-body { padding: 12px; }
+  /* ── Card body (right column) ── */
+  .bp-body { flex: 1; min-width: 0; padding: 10px 12px; overflow: hidden; }
 
   .bp-row-1 {
     display: flex;
@@ -373,11 +381,9 @@ export default function BarrelPickCard({ pick, session, onReported }) {
     setLightboxOpen(true)
   }
 
-  function advancePhoto(e) {
-    e.stopPropagation()
+  function advancePhoto() {
     if (photos.length <= 1) return
-    const next = (photoIndex + 1) % photos.length
-    setPhotoIndex(next)
+    setPhotoIndex(i => (i + 1) % photos.length)
   }
 
   async function submitReport(reportType) {
@@ -422,11 +428,11 @@ export default function BarrelPickCard({ pick, session, onReported }) {
       <style>{CARD_STYLES}</style>
 
       <div className="bp-card">
-        {/* ── Photo strip ── */}
+        {/* ── Photo column (left) ── */}
         {hasPhotos ? (
           <div
-            className="bp-photo-strip"
-            onClick={() => openLightbox(photoIndex)}
+            className="bp-photo-col"
+            onClick={() => photos.length > 1 ? advancePhoto() : openLightbox(photoIndex)}
           >
             <img
               className="bp-photo-img"
@@ -435,27 +441,17 @@ export default function BarrelPickCard({ pick, session, onReported }) {
               loading="lazy"
             />
             {photos.length > 1 && (
-              <>
-                <div
-                  className="bp-photo-strip"
-                  style={{ position: 'absolute', inset: 0, background: 'transparent' }}
-                  onClick={e => { e.stopPropagation(); advancePhoto(e) }}
-                />
-                <div className="bp-photo-dots">
-                  {photos.map((_, i) => (
-                    <div
-                      key={i}
-                      className={`bp-photo-dot${i === photoIndex ? ' active' : ''}`}
-                    />
-                  ))}
-                </div>
-              </>
+              <div className="bp-photo-dots">
+                {photos.map((_, i) => (
+                  <div key={i} className={`bp-photo-dot${i === photoIndex ? ' active' : ''}`} />
+                ))}
+              </div>
             )}
           </div>
         ) : (
           <div className="bp-photo-placeholder">
             <GlencairnIcon />
-            <span className="bp-photo-placeholder-text">No Photo Yet</span>
+            <span className="bp-photo-placeholder-text">No Photo</span>
           </div>
         )}
 
