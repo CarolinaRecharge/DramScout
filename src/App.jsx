@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Filter } from 'bad-words'
 import ScoutTab from './components/ScoutTab.jsx'
+import { useProfile } from './hooks/useProfile.js'
+import { HomeCountyModal } from './components/HomeCountyModal.jsx'
+import { CountyPicker } from './components/CountyPicker.jsx'
+import { distanceMiles } from './data/ncCounties.js'
 import {
   supabase, getFingerprint,
   fetchStores, fetchSightings, fetchEvents,
@@ -3970,6 +3974,9 @@ export default function App() {
   const [reporterHandle, setReporterHandle] = useState('')
   const [session, setSession] = useState(null)
   const [userRole, setUserRole] = useState('scout')
+
+  // ── Home county profile ────────────────────────────────────────────────
+  const { profile: countyProfile, homeCoords, hasHomeCounty, isOnboardingNeeded, updateHomeCounty } = useProfile(session?.user?.id)
   const [adminSearch, setAdminSearch] = useState('')
   const [adminSearchResults, setAdminSearchResults] = useState([])
   const [allUsers, setAllUsers] = useState(null)         // null = not loaded yet
@@ -4004,6 +4011,8 @@ export default function App() {
   const [phoneDevCode, setPhoneDevCode] = useState(null)
   const [phoneError, setPhoneError] = useState(null)
   const [phoneLoading, setPhoneLoading] = useState(false)
+  // Home county picker (profile settings)
+  const [countyPickerOpen, setCountyPickerOpen] = useState(false)
   // Event type filter
   const [evtTypeFilter, setEvtTypeFilter] = useState('all')
   // Event creation form
@@ -4074,6 +4083,7 @@ export default function App() {
   const markersRef = useRef([])
   const storeMarkersRef = useRef([])
   const leafletLoadedRef = useRef(false)
+  const homeCoordsRef = useRef({ lat: 35.7796, lng: -78.6382 })
   const toastTimerRef = useRef(null)
   const realtimeChannelRef = useRef(null)
   const forumChannelRef = useRef(null)
@@ -4189,6 +4199,17 @@ export default function App() {
     fetchUserSightings(session.user.id).then(setUserSightings)
   }, [session?.user?.id])
 
+  // ── Keep homeCoordsRef in sync for use inside initMap (runs once, [] deps) ──
+  useEffect(() => {
+    homeCoordsRef.current = homeCoords
+  }, [homeCoords])
+
+  // ── Pan map to home county when homeCoords loads (async after map init) ──
+  useEffect(() => {
+    if (!mapInstanceRef.current || !hasHomeCounty) return
+    mapInstanceRef.current.setView([homeCoords.lat, homeCoords.lng], 11)
+  }, [homeCoords.lat, homeCoords.lng, hasHomeCounty])
+
   // ── Re-validate map when scout tab becomes visible ────────────────────
   useEffect(() => {
     if (activeTab === 'scout' && mapInstanceRef.current) {
@@ -4242,8 +4263,9 @@ export default function App() {
     function initMap() {
       if (!mapContainerRef.current || mapInstanceRef.current) return
       const L = window.L
+      const { lat: initLat, lng: initLng } = homeCoordsRef.current
       const map = L.map(mapContainerRef.current, {
-        center: [35.7796, -78.6382],
+        center: [initLat, initLng],
         zoom: 11,
         zoomControl: true,
         attributionControl: true,
@@ -4263,6 +4285,13 @@ export default function App() {
       mapInstanceRef.current = map
       leafletLoadedRef.current = true
       // markers drawn by the sightings effect once DB data arrives
+
+      // After init, attempt GPS — overrides county center when granted
+      navigator.geolocation?.getCurrentPosition(
+        (pos) => { map.setView([pos.coords.latitude, pos.coords.longitude], 13) },
+        () => {},
+        { timeout: 5000 }
+      )
 
       // Use ResizeObserver so invalidateSize fires exactly when the container
       // gets its real CSS dimensions (fixed-layout, tab show/hide, window resize).
@@ -4475,6 +4504,9 @@ export default function App() {
   // Normalise a DB row to the same shape as mock sightings
   function normaliseRow(s) {
     const createdAt = s.createdAt ?? new Date(s.created_at).getTime()
+    const distVal = (s.lat && s.lng && hasHomeCounty)
+      ? Math.round(distanceMiles(homeCoords.lat, homeCoords.lng, s.lat, s.lng))
+      : (s.dist || '?')
     return {
       ...s,
       store: s.store || s.store_name,
@@ -4482,16 +4514,20 @@ export default function App() {
       createdAt,
       hoursAgo: (now - createdAt) / (1000 * 60 * 60),
       confirmations: s.confirmations ?? s.confirmation_count ?? 0,
-      dist: s.dist || '?',
+      dist: distVal,
     }
   }
 
   const allSightings = (dbSightings || []).map(normaliseRow)
 
-  const filteredSightings = allSightings.filter(s => {
-    if (s.hoursAgo > 336) return false
-    return filterMatches(s, activeFilter, bottleSearch)
-  })
+  const filteredSightings = allSightings
+    .filter(s => s.hoursAgo <= 336 && filterMatches(s, activeFilter, bottleSearch))
+    .sort((a, b) => {
+      if (!hasHomeCounty) return 0 // preserve recency order when no county set
+      const da = typeof a.dist === 'number' ? a.dist : Infinity
+      const db = typeof b.dist === 'number' ? b.dist : Infinity
+      return da - db
+    })
 
   const activeEvents = (dbEvents || []).map(e => ({
     ...e,
@@ -5509,6 +5545,11 @@ export default function App() {
         )}
       </header>
 
+      {/* ── HOME COUNTY ONBOARDING MODAL ────────────────────────────── */}
+      {session && isOnboardingNeeded && (
+        <HomeCountyModal onComplete={updateHomeCounty} />
+      )}
+
       {/* ── TAB BAR ─────────────────────────────────────────────────── */}
       <nav className="tab-bar">
         <button
@@ -6027,6 +6068,48 @@ export default function App() {
                   </button>
                 </div>
               </div>
+
+              {/* ── Home County ──────────────────────────────────── */}
+              <div className="phone-settings-panel">
+                <div className="phone-settings-header">HOME COUNTY</div>
+                <div className="phone-current">
+                  {countyProfile?.home_county ? (
+                    <span className="phone-number">{countyProfile.home_county} County</span>
+                  ) : (
+                    <span className="phone-empty">No home county set</span>
+                  )}
+                </div>
+                <button
+                  className="phone-edit-btn"
+                  onClick={() => setCountyPickerOpen(true)}
+                >
+                  {countyProfile?.home_county ? 'CHANGE COUNTY' : 'SET COUNTY'}
+                </button>
+              </div>
+
+              {/* County change sheet */}
+              {countyPickerOpen && (
+                <>
+                  <div className="sheet-overlay" onClick={() => setCountyPickerOpen(false)} style={{ zIndex: 400 }} />
+                  <div className="sheet open" style={{ zIndex: 410, height: '88dvh', maxHeight: '88dvh' }}>
+                    <div className="sheet-handle-wrap">
+                      <div className="sheet-handle" />
+                    </div>
+                    <div className="sheet-header">
+                      <div className="sheet-title">CHANGE HOME COUNTY</div>
+                    </div>
+                    <div className="sheet-body" style={{ overflowY: 'auto', padding: '0 16px' }}>
+                      <CountyPicker
+                        selectedCounty={countyProfile?.home_county ?? null}
+                        onSelect={async (county) => {
+                          await updateHomeCounty(county)
+                          setCountyPickerOpen(false)
+                        }}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* ── Phone Number ─────────────────────────────────── */}
               <div className="phone-settings-panel">
