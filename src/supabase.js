@@ -411,6 +411,38 @@ export async function fetchUserHandle(userId) {
   return data?.handle || null
 }
 
+// Fetch home county profile data
+export async function fetchHomeCounty(userId) {
+  if (!supabase || !userId) return null
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('home_county, home_county_lat, home_county_lng, onboarding_complete')
+    .eq('user_id', userId)
+    .single()
+  if (error) { console.warn('fetchHomeCounty:', error.message); return null }
+  return data
+}
+
+// Update home county — resolves centroid from ncCounties.js and sets onboarding_complete
+export async function updateHomeCounty(userId, county) {
+  if (!supabase || !userId) return null
+  const { getCountyCentroid } = await import('./data/ncCounties.js')
+  const centroid = getCountyCentroid(county)
+  const { data, error } = await supabase
+    .from('profiles')
+    .upsert({
+      user_id: userId,
+      home_county: county,
+      home_county_lat: centroid.lat,
+      home_county_lng: centroid.lng,
+      onboarding_complete: true,
+    }, { onConflict: 'user_id' })
+    .select('home_county, home_county_lat, home_county_lng, onboarding_complete')
+    .single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
 // Persist a user-edited handle
 export async function updateUserHandle(userId, handle) {
   if (!supabase || !userId) return
