@@ -39,7 +39,7 @@ const MUTABLE_FIELDS = [
   'age_stated', 'proof', 'vintage_year', 'label_name', 'selected_by',
   'selection_date', 'arrival_date', 'price_per_bottle', 'bottles_total',
   'bottles_remaining', 'msrp', 'store_notes', 'tasting_notes', 'status',
-  'photo_urls', 'primary_photo_url', 'is_featured',
+  'photo_urls', 'primary_photo_url', 'is_featured', 'comments_enabled',
 ]
 
 async function handleUpdate(storeId, id, req, res) {

@@ -566,7 +566,7 @@ function GlencairnIcon({ color = 'var(--worn)' }) {
   )
 }
 
-export default function BarrelPickCard({ pick, session, onReported }) {
+export default function BarrelPickCard({ pick, session, onReported, defaultDetailOpen, onDetailClose }) {
   const [photoIndex, setPhotoIndex] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
@@ -574,7 +574,7 @@ export default function BarrelPickCard({ pick, session, onReported }) {
   const [reportOpen, setReportOpen] = useState(false)
   const [reported, setReported] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
-  const [detailOpen, setDetailOpen] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(defaultDetailOpen || false)
   const [detailPhotoIndex, setDetailPhotoIndex] = useState(0)
   const [comments, setComments] = useState([])
   const [commentsLoading, setCommentsLoading] = useState(false)
@@ -848,9 +848,9 @@ export default function BarrelPickCard({ pick, session, onReported }) {
 
       {/* ── Detail modal ── */}
       {detailOpen && (
-        <div className="bp-detail-overlay" onClick={() => setDetailOpen(false)}>
+        <div className="bp-detail-overlay" onClick={() => { setDetailOpen(false); onDetailClose?.() }}>
           <div className="bp-detail-modal" onClick={e => e.stopPropagation()}>
-            <button className="bp-detail-close" onClick={() => setDetailOpen(false)}>✕</button>
+            <button className="bp-detail-close" onClick={() => { setDetailOpen(false); onDetailClose?.() }}>✕</button>
 
             {/* Photo section */}
             <div className="bp-detail-photo-sec">

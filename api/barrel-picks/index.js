@@ -134,7 +134,7 @@ export default async function handler(req, res) {
       store_lng: linkedStore?.lng || null,
       distance_miles: distanceMiles !== null ? Math.round(distanceMiles * 10) / 10 : null,
       reports_count: reportCounts,
-      comments_enabled: storeData?.comments_enabled ?? true,
+      comments_enabled: pick.comments_enabled ?? true,
       created_at: pick.created_at,
     }
   })

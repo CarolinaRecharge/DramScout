@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase, updateStoreCommentsEnabled } from '../../supabase.js'
+import { supabase } from '../../supabase.js'
+import BarrelPickCard from '../BarrelPickCard.jsx'
 
 const styles = `
   .bpm-root {}
@@ -350,28 +351,12 @@ export default function BarrelPicksManager({ storeProfile, session }) {
   const [deleting, setDeleting] = useState(false)
   const [editingBottles, setEditingBottles] = useState({}) // pickId -> tempValue
   const [publishErrors, setPublishErrors] = useState({})  // pickId -> string
-  const [commentsEnabled, setCommentsEnabled] = useState(true)
-  const [togglingComments, setTogglingComments] = useState(false)
+  const [previewPick, setPreviewPick] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
     loadPicks()
   }, [])
-
-  useEffect(() => {
-    if (storeProfile?.comments_enabled !== undefined) {
-      setCommentsEnabled(storeProfile.comments_enabled)
-    }
-  }, [storeProfile?.comments_enabled])
-
-  async function handleCommentsToggle() {
-    const newValue = !commentsEnabled
-    setCommentsEnabled(newValue)
-    setTogglingComments(true)
-    const result = await updateStoreCommentsEnabled(storeProfile.id, newValue)
-    if (!result.ok) setCommentsEnabled(!newValue) // revert on failure
-    setTogglingComments(false)
-  }
 
   async function getLiveAuth() {
     const { data: { session: s } } = await supabase.auth.getSession()
@@ -468,6 +453,16 @@ export default function BarrelPicksManager({ storeProfile, session }) {
     }
   }
 
+  async function handleToggleComments(pick) {
+    const prevPicks = picks
+    setPicks(prev => prev.map(p => p.id === pick.id ? { ...p, comments_enabled: !p.comments_enabled } : p))
+    try {
+      await patchPick(pick.id, { comments_enabled: !pick.comments_enabled })
+    } catch {
+      setPicks(prevPicks)
+    }
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return
     setDeleting(true)
@@ -500,25 +495,9 @@ export default function BarrelPicksManager({ storeProfile, session }) {
 
       <div className="bpm-header">
         <span className="bpm-title">Barrel Picks</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div className="bpm-publish-wrap" title="Allow customers to comment on barrel picks">
-            <label className="bpm-toggle">
-              <input
-                type="checkbox"
-                checked={commentsEnabled}
-                onChange={handleCommentsToggle}
-                disabled={togglingComments || !storeProfile}
-              />
-              <span className="bpm-toggle-slider" />
-            </label>
-            <span className={`bpm-toggle-label${commentsEnabled ? ' on' : ''}`}>
-              Comments {commentsEnabled ? 'On' : 'Off'}
-            </span>
-          </div>
-          <button className="bpm-new-btn" onClick={() => navigate('/store/barrel-picks/new')}>
-            + New Pick
-          </button>
-        </div>
+        <button className="bpm-new-btn" onClick={() => navigate('/store/barrel-picks/new')}>
+          + New Pick
+        </button>
       </div>
 
       {error && <div className="bpm-error-msg">{error}</div>}
@@ -628,11 +607,29 @@ export default function BarrelPicksManager({ storeProfile, session }) {
                       {pick.is_featured ? 'FEATURED (ALWAYS SHOWN)' : 'FEATURE'}
                     </span>
                   </div>
+
+                  {/* Per-pick comments toggle */}
+                  <div className="bpm-feature-wrap">
+                    <label className="bpm-toggle">
+                      <input
+                        type="checkbox"
+                        checked={pick.comments_enabled ?? true}
+                        onChange={() => handleToggleComments(pick)}
+                      />
+                      <span className="bpm-toggle-slider" />
+                    </label>
+                    <span className={`bpm-toggle-label${pick.comments_enabled ? ' on' : ''}`}>
+                      {pick.comments_enabled ? 'COMMENTS ON' : 'COMMENTS OFF'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
               {/* Action buttons */}
               <div className="bpm-actions">
+                <button className="bpm-edit-btn" onClick={() => setPreviewPick(pick)}>
+                  Preview
+                </button>
                 <button className="bpm-edit-btn" onClick={() => navigate(`/store/barrel-picks/${pick.id}/edit`)}>
                   Edit
                 </button>
@@ -643,6 +640,16 @@ export default function BarrelPicksManager({ storeProfile, session }) {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Customer preview — shows the pick exactly as a customer would see it */}
+      {previewPick && (
+        <BarrelPickCard
+          pick={{ ...previewPick, store_name: storeProfile?.store_name }}
+          session={session}
+          defaultDetailOpen={true}
+          onDetailClose={() => setPreviewPick(null)}
+        />
       )}
 
       {/* Delete confirmation dialog */}
