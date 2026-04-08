@@ -51,7 +51,7 @@ export default async function handler(req, res) {
       .select(`
         *,
         store_profiles!inner (
-          id, store_name, address, county,
+          id, store_name, address, county, comments_enabled,
           stores ( id, lat, lng, name, address, city, state )
         ),
         barrel_pick_reports ( id, report_type )
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
       .select(`
         *,
         store_profiles!inner (
-          id, store_name, address, county,
+          id, store_name, address, county, comments_enabled,
           stores ( id, lat, lng, name, address, city, state )
         ),
         barrel_pick_reports ( id, report_type )
@@ -134,6 +134,7 @@ export default async function handler(req, res) {
       store_lng: linkedStore?.lng || null,
       distance_miles: distanceMiles !== null ? Math.round(distanceMiles * 10) / 10 : null,
       reports_count: reportCounts,
+      comments_enabled: storeData?.comments_enabled ?? true,
       created_at: pick.created_at,
     }
   })

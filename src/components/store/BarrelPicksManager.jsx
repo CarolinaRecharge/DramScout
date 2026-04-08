@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../supabase.js'
+import { supabase, updateStoreCommentsEnabled } from '../../supabase.js'
 
 const styles = `
   .bpm-root {}
@@ -350,11 +350,28 @@ export default function BarrelPicksManager({ storeProfile, session }) {
   const [deleting, setDeleting] = useState(false)
   const [editingBottles, setEditingBottles] = useState({}) // pickId -> tempValue
   const [publishErrors, setPublishErrors] = useState({})  // pickId -> string
+  const [commentsEnabled, setCommentsEnabled] = useState(true)
+  const [togglingComments, setTogglingComments] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
     loadPicks()
   }, [])
+
+  useEffect(() => {
+    if (storeProfile?.comments_enabled !== undefined) {
+      setCommentsEnabled(storeProfile.comments_enabled)
+    }
+  }, [storeProfile?.comments_enabled])
+
+  async function handleCommentsToggle() {
+    const newValue = !commentsEnabled
+    setCommentsEnabled(newValue)
+    setTogglingComments(true)
+    const result = await updateStoreCommentsEnabled(storeProfile.id, newValue)
+    if (!result.ok) setCommentsEnabled(!newValue) // revert on failure
+    setTogglingComments(false)
+  }
 
   async function getLiveAuth() {
     const { data: { session: s } } = await supabase.auth.getSession()
@@ -483,9 +500,25 @@ export default function BarrelPicksManager({ storeProfile, session }) {
 
       <div className="bpm-header">
         <span className="bpm-title">Barrel Picks</span>
-        <button className="bpm-new-btn" onClick={() => navigate('/store/barrel-picks/new')}>
-          + New Pick
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div className="bpm-publish-wrap" title="Allow customers to comment on barrel picks">
+            <label className="bpm-toggle">
+              <input
+                type="checkbox"
+                checked={commentsEnabled}
+                onChange={handleCommentsToggle}
+                disabled={togglingComments || !storeProfile}
+              />
+              <span className="bpm-toggle-slider" />
+            </label>
+            <span className={`bpm-toggle-label${commentsEnabled ? ' on' : ''}`}>
+              Comments {commentsEnabled ? 'On' : 'Off'}
+            </span>
+          </div>
+          <button className="bpm-new-btn" onClick={() => navigate('/store/barrel-picks/new')}>
+            + New Pick
+          </button>
+        </div>
       </div>
 
       {error && <div className="bpm-error-msg">{error}</div>}
