@@ -581,8 +581,19 @@ export default function BarrelPickCard({ pick, session, onReported }) {
   const [commentInput, setCommentInput] = useState('')
   const [commentPosting, setCommentPosting] = useState(false)
   const [userHandle, setUserHandle] = useState(null)
+  const [localSession, setLocalSession] = useState(null)
 
-  const isStoreOwner = Boolean(pick.store_id && session?.user?.id === pick.store_id)
+  // Self-fetch session so commenting works regardless of whether parent passes session prop
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setLocalSession(data.session))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setLocalSession(sess)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const activeSession = localSession || session
+  const isStoreOwner = Boolean(pick.store_id && activeSession?.user?.id === pick.store_id)
 
   useEffect(() => {
     if (!detailOpen || !pick.comments_enabled) return
@@ -591,15 +602,15 @@ export default function BarrelPickCard({ pick, session, onReported }) {
   }, [detailOpen, pick.id, pick.comments_enabled])
 
   useEffect(() => {
-    if (!session?.user?.id) return
-    fetchUserHandle(session.user.id).then(h => setUserHandle(h))
-  }, [session?.user?.id])
+    if (!activeSession?.user?.id) return
+    fetchUserHandle(activeSession.user.id).then(h => setUserHandle(h))
+  }, [activeSession?.user?.id])
 
   async function handlePostComment() {
-    if (!session?.user?.id || !commentInput.trim()) return
-    const handle = userHandle || session.user.email?.split('@')[0] || 'User'
+    if (!activeSession?.user?.id || !commentInput.trim()) return
+    const handle = userHandle || activeSession.user.email?.split('@')[0] || 'User'
     setCommentPosting(true)
-    const newComment = await postPickComment(pick.id, session.user.id, handle, commentInput.trim())
+    const newComment = await postPickComment(pick.id, activeSession.user.id, handle, commentInput.trim())
     if (newComment) {
       setComments(prev => [...prev, newComment])
       setCommentInput('')
@@ -612,7 +623,7 @@ export default function BarrelPickCard({ pick, session, onReported }) {
     if (isStoreOwner) {
       result = await deletePickCommentAsOwner(commentId)
     } else {
-      result = await deletePickComment(commentId, session.user.id)
+      result = await deletePickComment(commentId, activeSession.user.id)
     }
     if (result.ok) setComments(prev => prev.filter(c => c.id !== commentId))
   }
@@ -982,7 +993,7 @@ export default function BarrelPickCard({ pick, session, onReported }) {
                           <div className="bp-comment-meta">
                             <span className="bp-comment-handle">{c.handle}</span>
                             <span className="bp-comment-time">{formatCommentTime(c.created_at)}</span>
-                            {(session?.user?.id === c.user_id || isStoreOwner) && (
+                            {(activeSession?.user?.id === c.user_id || isStoreOwner) && (
                               <button
                                 className="bp-comment-del"
                                 onClick={() => handleDeleteComment(c.id, c.user_id)}
@@ -994,7 +1005,7 @@ export default function BarrelPickCard({ pick, session, onReported }) {
                       ))}
                     </div>
                   )}
-                  {session ? (
+                  {activeSession ? (
                     <div className="bp-comment-form">
                       <textarea
                         className="bp-comment-input"
