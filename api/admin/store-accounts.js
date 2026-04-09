@@ -38,34 +38,38 @@ export default async function handler(req, res) {
 
   const supabase = getAdminClient()
 
-  // ── GET: list all store_profiles grouped by owner store ──────────────────
+  // ── GET: list all store_profiles grouped by owner + return map stores ─────
   if (req.method === 'GET') {
-    // Fetch all store_profiles rows
+    // Fetch all map stores (for the "select a store" dropdown in the UI)
+    const { data: mapStores, error: mapErr } = await supabase
+      .from('stores')
+      .select('id, name, city, county, address')
+      .order('name', { ascending: true })
+
+    if (mapErr) return res.status(500).json({ error: mapErr.message })
+
+    // Fetch all store portal accounts (with their linked map store)
     const { data, error } = await supabase
       .from('store_profiles')
-      .select('id, store_name, store_number, county, address, contact_name, contact_phone, is_active, store_role, parent_store_id, created_at')
+      .select('id, store_name, store_number, county, address, contact_name, contact_phone, is_active, store_role, parent_store_id, stores_id, created_at')
       .order('created_at', { ascending: true })
 
     if (error) return res.status(500).json({ error: error.message })
 
-    // Fetch email addresses from auth.users for all profile IDs
+    // Batch-fetch email addresses from auth.users
     const ids = data.map(p => p.id)
     const emailMap = {}
-    // Batch fetch in chunks of 50 to avoid URL length limits
     for (let i = 0; i < ids.length; i += 50) {
       const chunk = ids.slice(i, i + 50)
-      // Use auth.admin.listUsers and filter — or use RPC if available
-      // Here we use a direct admin user lookup per ID
       await Promise.all(chunk.map(async id => {
         const { data: u } = await supabase.auth.admin.getUserById(id)
         if (u?.user) emailMap[id] = u.user.email
       }))
     }
 
-    // Attach email to each profile row
     const profiles = data.map(p => ({ ...p, email: emailMap[p.id] || null }))
 
-    // Group: owners (parent_store_id IS NULL) → sub-accounts
+    // Group: owners (parent_store_id IS NULL) → their sub-accounts
     const owners = profiles.filter(p => !p.parent_store_id)
     const subAccounts = profiles.filter(p => p.parent_store_id)
 
@@ -77,33 +81,41 @@ export default async function handler(req, res) {
       ]
     }))
 
-    return res.status(200).json({ stores: grouped })
+    return res.status(200).json({ stores: grouped, mapStores })
   }
 
   // ── POST: create a new store account ────────────────────────────────────
-  // Body for new owner store:
-  //   { email, password, store_name, store_number, county, address, contact_name }
+  // Body for new owner account (first account for a store):
+  //   { email, password, stores_id, store_number? }
+  //   store_name is pulled from stores.name — not supplied by the caller.
+  //
   // Body for sub-account (manager/cashier):
   //   { email, password, store_role, parent_store_id }
+  //   All store details are inherited from the parent owner row.
   if (req.method === 'POST') {
-    const { email, password, store_role = 'owner', parent_store_id, store_name, store_number, county, address, contact_name, contact_phone } = req.body
+    const {
+      email, password,
+      store_role = 'owner',
+      parent_store_id,
+      stores_id,
+      store_number,
+    } = req.body
 
     if (!email || !password) {
       return res.status(400).json({ error: 'email and password are required' })
     }
 
-    // Resolve store details for sub-accounts from the parent
-    let resolvedStoreName = store_name
-    let resolvedStoreNumber = store_number
-    let resolvedCounty = county
-    let resolvedAddress = address
-    let resolvedContactName = contact_name
-    let resolvedContactPhone = contact_phone
+    let resolvedStoreName
+    let resolvedStoreNumber = store_number || null
+    let resolvedCounty = null
+    let resolvedAddress = null
+    let resolvedStoresId = stores_id || null
 
     if (parent_store_id) {
+      // Sub-account: inherit everything from the owner's store_profiles row
       const { data: parent, error: parentErr } = await supabase
         .from('store_profiles')
-        .select('store_name, store_number, county, address, contact_name, contact_phone, store_role')
+        .select('store_name, store_number, county, address, stores_id, parent_store_id')
         .eq('id', parent_store_id)
         .single()
 
@@ -113,15 +125,30 @@ export default async function handler(req, res) {
       if (parent.parent_store_id) {
         return res.status(400).json({ error: 'Cannot nest sub-accounts: parent must be an owner account' })
       }
-      resolvedStoreName = parent.store_name
+      resolvedStoreName   = parent.store_name
       resolvedStoreNumber = parent.store_number
-      resolvedCounty = parent.county
-      resolvedAddress = parent.address
-      resolvedContactName = parent.contact_name
-      resolvedContactPhone = parent.contact_phone
+      resolvedCounty      = parent.county
+      resolvedAddress     = parent.address
+      resolvedStoresId    = parent.stores_id
     } else {
-      // Owner account requires store_name
-      if (!store_name) return res.status(400).json({ error: 'store_name required for owner account' })
+      // Owner account: stores_id is required — the store must exist on the map
+      if (!stores_id) {
+        return res.status(400).json({ error: 'stores_id is required — select an existing map store' })
+      }
+
+      const { data: mapStore, error: mapErr } = await supabase
+        .from('stores')
+        .select('id, name, county, address, city')
+        .eq('id', stores_id)
+        .single()
+
+      if (mapErr || !mapStore) {
+        return res.status(400).json({ error: 'Store not found on the map' })
+      }
+
+      resolvedStoreName = mapStore.name
+      resolvedCounty    = mapStore.county || null
+      resolvedAddress   = [mapStore.address, mapStore.city].filter(Boolean).join(', ') || null
     }
 
     // 1. Create the Supabase auth user
@@ -141,14 +168,13 @@ export default async function handler(req, res) {
     const profileRow = {
       id: userId,
       store_name: resolvedStoreName,
-      store_number: resolvedStoreNumber || null,
-      county: resolvedCounty || null,
-      address: resolvedAddress || null,
-      contact_name: resolvedContactName || null,
-      contact_phone: resolvedContactPhone || null,
+      store_number: resolvedStoreNumber,
+      county: resolvedCounty,
+      address: resolvedAddress,
       is_active: true,
       store_role,
-      parent_store_id: parent_store_id || null
+      parent_store_id: parent_store_id || null,
+      stores_id: resolvedStoresId,
     }
 
     const { error: profileErr } = await supabase
@@ -165,7 +191,8 @@ export default async function handler(req, res) {
       user_id: userId,
       email,
       store_role,
-      parent_store_id: parent_store_id || null
+      parent_store_id: parent_store_id || null,
+      stores_id: resolvedStoresId,
     })
   }
 

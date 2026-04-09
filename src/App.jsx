@@ -3989,6 +3989,8 @@ export default function App() {
   const [storeAccounts, setStoreAccounts] = useState(null)   // null = not loaded
   const [storeAccountsLoading, setStoreAccountsLoading] = useState(false)
   const [storeAccountsError, setStoreAccountsError] = useState(null)
+  const [mapStores, setMapStores] = useState([])             // stores on the map (for dropdown)
+  const [mapStoreSearch, setMapStoreSearch] = useState('')   // filter text for store picker
   const [storeAccountModal, setStoreAccountModal] = useState(null)
   // storeAccountModal: null | { mode: 'new-store' | 'add-account', storeId?, storeName? }
   const [storeModalForm, setStoreModalForm] = useState({})
@@ -4209,6 +4211,7 @@ export default function App() {
       if (!res.ok) throw new Error((await res.json()).error || 'Failed to load stores')
       const json = await res.json()
       setStoreAccounts(json.stores || [])
+      setMapStores(json.mapStores || [])
     } catch (err) {
       setStoreAccountsError(err.message)
     } finally {
@@ -4236,6 +4239,7 @@ export default function App() {
       if (!res.ok) throw new Error((await res.json()).error || 'Failed to create account')
       setStoreAccountModal(null)
       setStoreModalForm({})
+      setMapStoreSearch('')
       setStoreAccounts(null)  // trigger reload
     } catch (err) {
       setStoreModalError(err.message)
@@ -6441,7 +6445,7 @@ export default function App() {
                         <button
                           className="admin-role-select"
                           style={{ cursor: 'pointer', padding: '4px 10px', background: 'rgba(193,125,14,0.12)', border: '1px solid rgba(193,125,14,0.4)', color: 'var(--gold)', borderRadius: 4, fontSize: 10, letterSpacing: '0.1em' }}
-                          onClick={() => { setStoreAccountModal({ mode: 'new-store' }); setStoreModalForm({ store_role: 'owner' }); setStoreModalError(null) }}
+                          onClick={() => { setStoreAccountModal({ mode: 'new-store' }); setStoreModalForm({ store_role: 'owner' }); setStoreModalError(null); setMapStoreSearch('') }}
                         >
                           + NEW STORE
                         </button>
@@ -6464,7 +6468,7 @@ export default function App() {
                             </div>
                             <button
                               style={{ fontSize: 10, letterSpacing: '0.1em', background: 'none', border: '1px solid var(--rule)', color: 'var(--ghost)', borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}
-                              onClick={() => { setStoreAccountModal({ mode: 'add-account', storeId: store.id, storeName: store.store_name }); setStoreModalForm({ store_role: 'manager' }); setStoreModalError(null) }}
+                              onClick={() => { setStoreAccountModal({ mode: 'add-account', storeId: store.id, storeName: store.store_name }); setStoreModalForm({ store_role: 'manager' }); setStoreModalError(null); setMapStoreSearch('') }}
                             >
                               + ADD ACCOUNT
                             </button>
@@ -6513,22 +6517,72 @@ export default function App() {
                             {isNewStore ? '⚙ NEW STORE' : `⚙ ADD ACCOUNT · ${storeAccountModal.storeName}`}
                           </div>
 
-                          {isNewStore && (
-                            <>
-                              <label className="admin-panel-title" style={{ display: 'block', marginBottom: 6 }}>Store Name</label>
-                              <input className="admin-search-input" style={{ width: '100%', marginBottom: 12 }} placeholder="ABC Store #042" value={storeModalForm.store_name || ''} onChange={e => setStoreModalForm(f => ({ ...f, store_name: e.target.value }))} />
-                              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                                <div style={{ flex: 1 }}>
-                                  <label className="admin-panel-title" style={{ display: 'block', marginBottom: 6 }}>Store Number</label>
-                                  <input className="admin-search-input" style={{ width: '100%' }} placeholder="042" value={storeModalForm.store_number || ''} onChange={e => setStoreModalForm(f => ({ ...f, store_number: e.target.value }))} />
+                          {isNewStore && (() => {
+                            const selectedMapStore = mapStores.find(s => s.id === storeModalForm.stores_id)
+                            const filteredMapStores = mapStores.filter(s => {
+                              const q = mapStoreSearch.toLowerCase()
+                              return !q || s.name.toLowerCase().includes(q) || (s.city || '').toLowerCase().includes(q) || (s.county || '').toLowerCase().includes(q)
+                            })
+                            return (
+                              <>
+                                <label className="admin-panel-title" style={{ display: 'block', marginBottom: 6 }}>Store (from map)</label>
+
+                                {/* Search input */}
+                                <div style={{ position: 'relative', marginBottom: selectedMapStore ? 8 : 12 }}>
+                                  <input
+                                    className="admin-search-input"
+                                    style={{ width: '100%' }}
+                                    placeholder="Search by store name, city, or county…"
+                                    value={mapStoreSearch}
+                                    onChange={e => { setMapStoreSearch(e.target.value); setStoreModalForm(f => ({ ...f, stores_id: undefined })) }}
+                                  />
                                 </div>
-                                <div style={{ flex: 1 }}>
-                                  <label className="admin-panel-title" style={{ display: 'block', marginBottom: 6 }}>County</label>
-                                  <input className="admin-search-input" style={{ width: '100%' }} placeholder="Wake" value={storeModalForm.county || ''} onChange={e => setStoreModalForm(f => ({ ...f, county: e.target.value }))} />
-                                </div>
-                              </div>
-                            </>
-                          )}
+
+                                {/* Store picker list (shown when searching or no store selected yet) */}
+                                {(!selectedMapStore || mapStoreSearch) && (
+                                  <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--rule)', borderRadius: 4, marginBottom: 12 }}>
+                                    {filteredMapStores.length === 0 && (
+                                      <div style={{ padding: '10px 12px', fontSize: 11, color: 'var(--ghost)' }}>No stores match that search.</div>
+                                    )}
+                                    {filteredMapStores.map(s => (
+                                      <div
+                                        key={s.id}
+                                        onClick={() => { setStoreModalForm(f => ({ ...f, stores_id: s.id })); setMapStoreSearch('') }}
+                                        style={{ padding: '8px 12px', borderBottom: '1px solid var(--rule)', cursor: 'pointer', background: storeModalForm.stores_id === s.id ? 'rgba(193,125,14,0.1)' : 'transparent' }}
+                                        onMouseEnter={e => { if (storeModalForm.stores_id !== s.id) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                                        onMouseLeave={e => { if (storeModalForm.stores_id !== s.id) e.currentTarget.style.background = 'transparent' }}
+                                      >
+                                        <div style={{ fontSize: 11, color: 'var(--parchment)' }}>{s.name}</div>
+                                        <div style={{ fontSize: 10, color: 'var(--ghost)', marginTop: 2 }}>
+                                          {[s.city, s.county].filter(Boolean).join(' · ')}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Selected store confirmation chip */}
+                                {selectedMapStore && !mapStoreSearch && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '8px 12px', background: 'rgba(193,125,14,0.08)', border: '1px solid rgba(193,125,14,0.3)', borderRadius: 4 }}>
+                                    <div style={{ flex: 1 }}>
+                                      <div style={{ fontSize: 11, color: 'var(--parchment)' }}>{selectedMapStore.name}</div>
+                                      <div style={{ fontSize: 10, color: 'var(--ghost)', marginTop: 2 }}>
+                                        {[selectedMapStore.city, selectedMapStore.county].filter(Boolean).join(' · ')}
+                                      </div>
+                                    </div>
+                                    <button
+                                      style={{ background: 'none', border: 'none', color: 'var(--ghost)', cursor: 'pointer', fontSize: 12, padding: 4 }}
+                                      onClick={() => setStoreModalForm(f => ({ ...f, stores_id: undefined }))}
+                                      title="Change store"
+                                    >✕</button>
+                                  </div>
+                                )}
+
+                                <label className="admin-panel-title" style={{ display: 'block', marginBottom: 6 }}>Store Number (optional)</label>
+                                <input className="admin-search-input" style={{ width: '100%', marginBottom: 12 }} placeholder="042" value={storeModalForm.store_number || ''} onChange={e => setStoreModalForm(f => ({ ...f, store_number: e.target.value }))} />
+                              </>
+                            )
+                          })()}
 
                           <label className="admin-panel-title" style={{ display: 'block', marginBottom: 6 }}>Email</label>
                           <input className="admin-search-input" style={{ width: '100%', marginBottom: 12 }} type="email" placeholder="store@example.com" value={storeModalForm.email || ''} onChange={e => setStoreModalForm(f => ({ ...f, email: e.target.value }))} />
@@ -6557,7 +6611,7 @@ export default function App() {
                             <button
                               className="admin-role-select"
                               style={{ cursor: 'pointer', padding: '8px 16px', background: 'none', border: '1px solid var(--rule)', color: 'var(--ghost)', borderRadius: 4, fontSize: 10, letterSpacing: '0.1em' }}
-                              onClick={() => { setStoreAccountModal(null); setStoreModalForm({}); setStoreModalError(null) }}
+                              onClick={() => { setStoreAccountModal(null); setStoreModalForm({}); setStoreModalError(null); setMapStoreSearch('') }}
                               disabled={storeModalSubmitting}
                             >
                               CANCEL
@@ -6566,7 +6620,7 @@ export default function App() {
                               className="admin-role-select"
                               style={{ cursor: 'pointer', padding: '8px 16px', background: 'rgba(193,125,14,0.15)', border: '1px solid rgba(193,125,14,0.5)', color: 'var(--gold)', borderRadius: 4, fontSize: 10, letterSpacing: '0.1em' }}
                               onClick={handleStoreAccountSubmit}
-                              disabled={storeModalSubmitting || !storeModalForm.email || !storeModalForm.password || (isNewStore && !storeModalForm.store_name)}
+                              disabled={storeModalSubmitting || !storeModalForm.email || !storeModalForm.password || (isNewStore && !storeModalForm.stores_id)}
                             >
                               {storeModalSubmitting ? 'CREATING…' : 'CREATE'}
                             </button>
