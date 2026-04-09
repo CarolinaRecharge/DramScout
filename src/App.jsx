@@ -3986,6 +3986,7 @@ export default function App() {
   const [adminSearchResults, setAdminSearchResults] = useState([])
   const [allUsers, setAllUsers] = useState(null)         // null = not loaded yet
   const [allUsersLoading, setAllUsersLoading] = useState(false)
+  const [isStoreUser, setIsStoreUser] = useState(false)  // has a store_profiles row
   const [storeAccounts, setStoreAccounts] = useState(null)   // null = not loaded
   const [storeAccountsLoading, setStoreAccountsLoading] = useState(false)
   const [storeAccountsError, setStoreAccountsError] = useState(null)
@@ -4146,9 +4147,9 @@ export default function App() {
   // ── Auth session ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!supabase) return
-    async function initSession(sess) {
+    async function initSession(sess, event) {
       setSession(sess)
-      if (!sess?.user) { setUserRole('scout'); return }
+      if (!sess?.user) { setUserRole('scout'); setIsStoreUser(false); return }
       // Persist profile row so admin can look up users by email
       upsertProfile(sess.user.id, sess.user.email, sess.user.user_metadata?.full_name || null)
       // Auto-verify age from stored birthdate for returning logged-in users
@@ -4165,9 +4166,23 @@ export default function App() {
       }
       const role = await fetchUserRole(sess.user.id)
       setUserRole(role || 'scout')
+      // Check if this user has a store portal account.
+      // Store users should use /store; redirect automatically on sign-in
+      // and show a portal button on subsequent visits to the main app.
+      const { data: sp } = await supabase
+        .from('store_profiles')
+        .select('id')
+        .eq('id', sess.user.id)
+        .maybeSingle()
+      if (sp) {
+        setIsStoreUser(true)
+        if (event === 'SIGNED_IN') {
+          window.location.href = '/store'
+        }
+      }
     }
-    getSession().then(initSession)
-    return onAuthStateChange((_event, sess) => initSession(sess))
+    getSession().then(sess => initSession(sess, null))
+    return onAuthStateChange((event, sess) => initSession(sess, event))
   }, [])
 
   // ── Load notification prefs when session is ready ────────────────────
@@ -5636,13 +5651,13 @@ export default function App() {
           <img src="/icon-192.png" className="header-logo" alt="" />
           <span className="header-title">DRAM SCOUT</span>
         </div>
-        {isAdmin && (
+        {(isAdmin || isStoreUser) && (
           <button
             className="header-mode-toggle"
             onClick={() => { window.location.href = '/store' }}
-            title="Switch to Store Portal view"
+            title="Switch to Store Portal"
           >
-            Store View →
+            Store Portal →
           </button>
         )}
         {session ? (

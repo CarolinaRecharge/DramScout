@@ -9,3 +9,5 @@
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON store_profiles TO service_role;
 GRANT SELECT                         ON stores         TO service_role;
+-- user_roles: needed so the admin API can seed the 'store' role on account creation
+GRANT SELECT, INSERT, UPDATE         ON user_roles     TO service_role;

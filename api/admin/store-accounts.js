@@ -187,6 +187,12 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: profileErr.message })
     }
 
+    // Seed user_roles so the main customer app shows the correct role
+    // and redirects the user to the store portal on sign-in.
+    await supabase
+      .from('user_roles')
+      .upsert({ user_id: userId, role: 'store' }, { onConflict: 'user_id' })
+
     return res.status(201).json({
       user_id: userId,
       email,
