@@ -645,7 +645,7 @@ export default function BarrelPicksManager({ storeProfile, session }) {
       {/* Customer preview — shows the pick exactly as a customer would see it */}
       {previewPick && (
         <BarrelPickCard
-          pick={{ ...previewPick, store_name: storeProfile?.store_name }}
+          pick={{ ...previewPick, store_name: storeProfile?.store_name, comments_enabled: true }}
           session={session}
           defaultDetailOpen={true}
           onDetailClose={() => setPreviewPick(null)}
