@@ -29,6 +29,8 @@ import {
   fetchUserPhone,
   fetchUserHandle,
   updateUserHandle,
+  fetchFavoriteFilters,
+  saveFavoriteFilters,
   fetchUserBirthdate,
   saveUserBirthdate,
 } from './supabase'
@@ -2577,7 +2579,74 @@ body {
   justify-content: space-between;
 }
 
-/* ── Notification Settings ──────────────────────────────────────────────── */
+/* ── Favorite Filters picker ─────────────────────────────���──────────────── */
+.fav-filters-panel {
+  margin: 0 12px 12px;
+  background: var(--card-2);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 14px;
+}
+.fav-filters-panel-header {
+  font-family: 'Courier Prime', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.fav-filters-hint {
+  font-family: 'DM Mono', 'Courier Prime', monospace;
+  font-size: 9px;
+  color: var(--ghost);
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.fav-filters-category-label {
+  font-family: 'Courier Prime', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--parchment);
+  text-transform: uppercase;
+  margin: 10px 0 6px;
+}
+.fav-filters-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.fav-filters-chip {
+  font-family: 'DM Mono', 'Courier Prime', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--worn);
+  background: var(--card-2);
+  color: var(--parchment);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.fav-filters-chip.selected {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--ink);
+}
+.fav-filters-empty-note {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: var(--ghost);
+  letter-spacing: 0.04em;
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* ── Notification Settings ─────────────────────────────────���────────────── */
 .notif-settings-panel {
   margin: 0 12px 12px;
   background: rgba(74,158,202,0.06);
@@ -3769,7 +3838,26 @@ const BOURBON_CATALOG = [
   { brand: "Buffalo Trace", bottles: ["Buffalo Trace"] },
 ]
 
-const FILTERS = ['ALL', "BLANTON'S", 'WELLER', 'PAPPY', 'E.H. TAYLOR', 'FOUR ROSES', 'EAGLE RARE', 'STAGG', 'ELIJAH CRAIG', 'LARCENY']
+// Available filter keywords users can pin to their Scout-tab filter strip
+const AVAILABLE_BRAND_FILTERS = [
+  'Buffalo Trace', 'Heaven Hill', 'Four Roses', 'Wild Turkey', 'Brown-Forman', 'MGP',
+]
+const AVAILABLE_LABEL_FILTERS = [
+  "Blanton's", 'Weller', 'Pappy Van Winkle', 'E.H. Taylor', 'Eagle Rare', 'Stagg',
+  'Elijah Craig', 'Larceny', "Booker's", 'Knob Creek', 'Woodford Reserve',
+  'Wild Turkey 101', 'Rare Breed', "Russell's Reserve", 'Old Fitzgerald',
+  "Parker's Heritage", 'Evan Williams', 'Old Forester',
+]
+
+// Maps brand filter names → substrings to match against bottle name strings
+const BRAND_KEYWORD_MAP = {
+  'buffalo trace': ['blanton', 'weller', 'eagle rare', 'e.h. taylor', 'eh taylor', 'stagg', 'buffalo trace', 'old charter', 'van winkle', 'pappy'],
+  'heaven hill':   ['elijah craig', 'larceny', "parker's", 'evan williams', 'old fitzgerald', 'bernheim', 'henry mckenna'],
+  'four roses':    ['four roses'],
+  'wild turkey':   ['wild turkey', "russell's reserve", 'rare breed', 'longbranch'],
+  'brown-forman':  ['woodford reserve', 'old forester', 'early times'],
+  'mgp':           ['george remus', 'rhetoric', 'new riff'],
+}
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────
 function getFreshnessTier(hoursOld) {
@@ -3822,18 +3910,27 @@ function filterMatches(sighting, filter, search) {
   }
   if (filter === 'ALL') return true
   const f = filter.toLowerCase()
+
+  // Brand-level filter: match any bottle keyword associated with that brand
+  if (BRAND_KEYWORD_MAP[f]) {
+    return sighting.bottles.some(b => {
+      const bl = b.toLowerCase()
+      return BRAND_KEYWORD_MAP[f].some(kw => bl.includes(kw))
+    })
+  }
+
+  // Label-level filter: specific aliases + generic substring fallback
   return sighting.bottles.some(b => {
     const bl = b.toLowerCase()
-    if (f === "blanton's") return bl.includes('blanton')
-    if (f === 'weller') return bl.includes('weller')
-    if (f === 'eagle rare') return bl.includes('eagle rare')
-    if (f === 'e.h. taylor') return bl.includes('e.h. taylor') || bl.includes('eh taylor')
-    if (f === 'four roses') return bl.includes('four roses')
-    if (f === 'pappy') return bl.includes('pappy') || bl.includes('van winkle') || bl.includes('old rip')
-    if (f === 'stagg') return bl.includes('stagg')
-    if (f === 'elijah craig') return bl.includes('elijah craig')
-    if (f === 'larceny') return bl.includes('larceny')
-    return bl.includes(f)
+    if (f === "blanton's")          return bl.includes('blanton')
+    if (f === 'pappy van winkle')   return bl.includes('pappy') || bl.includes('van winkle') || bl.includes('old rip')
+    if (f === 'e.h. taylor')        return bl.includes('e.h. taylor') || bl.includes('eh taylor')
+    if (f === 'eagle rare')         return bl.includes('eagle rare')
+    if (f === 'four roses')         return bl.includes('four roses')
+    if (f === 'elijah craig')       return bl.includes('elijah craig')
+    if (f === "russell's reserve")  return bl.includes("russell's") || bl.includes('russells')
+    if (f === "parker's heritage")  return bl.includes("parker's") || bl.includes('parkers')
+    return bl.includes(f)  // generic substring for everything else
   })
 }
 
@@ -3956,6 +4053,7 @@ export default function App() {
   const [dbReady, setDbReady] = useState(false)
   const [appLoading, setAppLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState('ALL')
+  const [favoriteFilters, setFavoriteFilters] = useState([])
   const [bottleSearch, setBottleSearch] = useState('')
   const [searchExpanded, setSearchExpanded] = useState(false)
   const [pendingBrand, setPendingBrand] = useState('')
@@ -4195,6 +4293,7 @@ export default function App() {
     fetchNotificationPrefs(session.user.id).then(p => { if (p) setNotifPrefs(p) }).catch(() => {})
     fetchUserPhone(session.user.id).then(p => { if (p) setUserPhone(p) }).catch(() => {})
     fetchUserHandle(session.user.id).then(h => { if (h) setReporterHandle(h) }).catch(() => {})
+    fetchFavoriteFilters(session.user.id).then(f => setFavoriteFilters(f || [])).catch(() => {})
   }, [session])
 
   // ── Load all users when admin session is ready ────────────────────────
@@ -5789,7 +5888,7 @@ export default function App() {
         </div>
       )}
       <div className="filter-strip" style={{ display: activeTab === 'scout' ? undefined : 'none' }}>
-        {FILTERS.map(f => (
+        {(['ALL', ...favoriteFilters]).map(f => (
           <button
             key={f}
             className={`filter-chip${activeFilter === f && !bottleSearch ? ' active' : ''}`}
@@ -6358,6 +6457,64 @@ export default function App() {
                       </button>
                     </div>
                   </>
+                )}
+              </div>
+
+              {/* ── Favorite Filters ──────────────────────────────── */}
+              <div className="fav-filters-panel">
+                <div className="fav-filters-panel-header">FAVORITE FILTERS</div>
+                <div className="fav-filters-hint">
+                  Pin keywords to your Scout tab filter strip. Tap to add or remove.
+                </div>
+
+                <div className="fav-filters-category-label">BRANDS</div>
+                <div className="fav-filters-chip-row">
+                  {AVAILABLE_BRAND_FILTERS.map(brand => {
+                    const selected = favoriteFilters.includes(brand)
+                    return (
+                      <button
+                        key={brand}
+                        className={`fav-filters-chip${selected ? ' selected' : ''}`}
+                        onClick={async () => {
+                          const next = selected
+                            ? favoriteFilters.filter(f => f !== brand)
+                            : [...favoriteFilters, brand]
+                          setFavoriteFilters(next)
+                          await saveFavoriteFilters(session.user.id, next)
+                        }}
+                      >
+                        {brand}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="fav-filters-category-label">LABELS</div>
+                <div className="fav-filters-chip-row">
+                  {AVAILABLE_LABEL_FILTERS.map(label => {
+                    const selected = favoriteFilters.includes(label)
+                    return (
+                      <button
+                        key={label}
+                        className={`fav-filters-chip${selected ? ' selected' : ''}`}
+                        onClick={async () => {
+                          const next = selected
+                            ? favoriteFilters.filter(f => f !== label)
+                            : [...favoriteFilters, label]
+                          setFavoriteFilters(next)
+                          await saveFavoriteFilters(session.user.id, next)
+                        }}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {favoriteFilters.length === 0 && (
+                  <div className="fav-filters-empty-note">
+                    No filters pinned — your Scout tab shows all sightings
+                  </div>
                 )}
               </div>
 
