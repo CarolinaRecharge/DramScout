@@ -477,6 +477,27 @@ export async function searchProfiles(query) {
   return data || []
 }
 
+// Fetch stored birthdate for age verification
+export async function fetchUserBirthdate(userId) {
+  if (!supabase || !userId) return null
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('birthdate')
+    .eq('user_id', userId)
+    .single()
+  if (error) { console.warn('fetchUserBirthdate:', error.message); return null }
+  return data?.birthdate || null
+}
+
+// Save birthdate after age verification (logged-in users only)
+export async function saveUserBirthdate(userId, birthdate) {
+  if (!supabase || !userId) return
+  const { error } = await supabase
+    .from('profiles')
+    .upsert({ user_id: userId, birthdate }, { onConflict: 'user_id' })
+  if (error) throw new Error(error.message)
+}
+
 // Fetch role for a specific user_id (admin panel lookup)
 export async function fetchRoleForUser(userId) {
   if (!supabase || !userId) return 'scout'
