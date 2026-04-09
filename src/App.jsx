@@ -3,6 +3,8 @@ import { Filter } from 'bad-words'
 import ScoutTab from './components/ScoutTab.jsx'
 import { useProfile } from './hooks/useProfile.js'
 import { HomeCountyModal } from './components/HomeCountyModal.jsx'
+import { AgeVerificationModal, calculateAge } from './components/AgeVerificationModal.jsx'
+import { AgeBlockedScreen } from './components/AgeBlockedScreen.jsx'
 import { CountyPicker } from './components/CountyPicker.jsx'
 import { distanceMiles } from './data/ncCounties.js'
 import {
@@ -27,6 +29,8 @@ import {
   fetchUserPhone,
   fetchUserHandle,
   updateUserHandle,
+  fetchUserBirthdate,
+  saveUserBirthdate,
 } from './supabase'
 
 const ADMIN_EMAIL = 'danielk.black95@gmail.com'
@@ -3974,6 +3978,7 @@ export default function App() {
   const [reporterHandle, setReporterHandle] = useState('')
   const [session, setSession] = useState(null)
   const [userRole, setUserRole] = useState('scout')
+  const [ageStatus, setAgeStatus] = useState('pending') // 'pending' | 'verified' | 'blocked'
 
   // ── Home county profile ────────────────────────────────────────────────
   const { profile: countyProfile, homeCoords, hasHomeCounty, isOnboardingNeeded, updateHomeCounty } = useProfile(session?.user?.id)
@@ -4136,6 +4141,12 @@ export default function App() {
       if (!sess?.user) { setUserRole('scout'); return }
       // Persist profile row so admin can look up users by email
       upsertProfile(sess.user.id, sess.user.email, sess.user.user_metadata?.full_name || null)
+      // Auto-verify age from stored birthdate for returning logged-in users
+      fetchUserBirthdate(sess.user.id).then(birthdate => {
+        if (birthdate) {
+          setAgeStatus(calculateAge(birthdate) >= 21 ? 'verified' : 'blocked')
+        }
+      }).catch(() => {})
       // Seed admin role on first login for the designated admin email
       if (sess.user.email === ADMIN_EMAIL) {
         upsertUserRole(sess.user.id, 'admin') // fire-and-forget — role is known from email check
@@ -4593,6 +4604,19 @@ export default function App() {
     setAuthError(null)
     setAuthSuccess(null)
     setShowAuthModal(true)
+  }
+
+  // ── Age verification handlers ──────────────────────────────────────────
+  function handleAgeVerified(birthdateStr) {
+    setAgeStatus('verified')
+    // Persist birthdate to profile for future auto-verification (fire-and-forget)
+    if (session?.user?.id) {
+      saveUserBirthdate(session.user.id, birthdateStr).catch(() => {})
+    }
+  }
+
+  function handleAgeBlocked() {
+    setAgeStatus('blocked')
   }
 
   async function handleEmailAuth(e) {
@@ -5501,6 +5525,8 @@ export default function App() {
   }
 
   // ── Render ────────────────────────────────────────────────────────────
+  if (ageStatus === 'blocked') return <AgeBlockedScreen />
+
   return (
     <div className="app-root">
       {/* ── HEADER ──────────────────────────────────────────────────── */}
@@ -5544,6 +5570,11 @@ export default function App() {
           </button>
         )}
       </header>
+
+      {/* ── AGE VERIFICATION MODAL ──────────────────────────────────── */}
+      {ageStatus === 'pending' && (
+        <AgeVerificationModal onVerified={handleAgeVerified} onBlocked={handleAgeBlocked} />
+      )}
 
       {/* ── HOME COUNTY ONBOARDING MODAL ────────────────────────────── */}
       {session && isOnboardingNeeded && (
