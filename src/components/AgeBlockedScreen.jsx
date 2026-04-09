@@ -68,38 +68,10 @@ export function AgeBlockedScreen() {
         color: '#7A6845',
         lineHeight: 1.7,
         maxWidth: 280,
-        marginBottom: 36,
       }}>
         You must be 21 years of age or older to access Dram Scout. This site contains
         content related to the purchase and consumption of alcohol.
       </div>
-
-      <button
-        onClick={() => window.location.reload()}
-        style={{
-          background: 'none',
-          border: '1px solid #3A2910',
-          borderRadius: 8,
-          color: '#7A6845',
-          fontFamily: "'Courier Prime', monospace",
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: '0.15em',
-          padding: '12px 28px',
-          cursor: 'pointer',
-          transition: 'border-color 0.15s, color 0.15s',
-        }}
-        onMouseEnter={e => {
-          e.currentTarget.style.borderColor = '#C17D0E'
-          e.currentTarget.style.color = '#C17D0E'
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.borderColor = '#3A2910'
-          e.currentTarget.style.color = '#7A6845'
-        }}
-      >
-        RELOAD TO TRY AGAIN
-      </button>
     </div>
   )
 }
