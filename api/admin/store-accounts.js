@@ -51,7 +51,7 @@ export default async function handler(req, res) {
     // Fetch all store portal accounts (with their linked map store)
     const { data, error } = await supabase
       .from('store_profiles')
-      .select('id, store_name, store_number, county, address, contact_name, contact_phone, is_active, store_role, parent_store_id, stores_id, created_at')
+      .select('id, store_name, store_number, county, address, contact_name, contact_phone, is_active, store_role, parent_store_id, linked_store_id, created_at')
       .order('created_at', { ascending: true })
 
     if (error) return res.status(500).json({ error: error.message })
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
 
   // ── POST: create a new store account ────────────────────────────────────
   // Body for new owner account (first account for a store):
-  //   { email, password, stores_id, store_number? }
+  //   { email, password, linked_store_id, store_number? }
   //   store_name is pulled from stores.name — not supplied by the caller.
   //
   // Body for sub-account (manager/cashier):
@@ -97,7 +97,7 @@ export default async function handler(req, res) {
       email, password,
       store_role = 'owner',
       parent_store_id,
-      stores_id,
+      linked_store_id,
       store_number,
     } = req.body
 
@@ -109,13 +109,13 @@ export default async function handler(req, res) {
     let resolvedStoreNumber = store_number || null
     let resolvedCounty = null
     let resolvedAddress = null
-    let resolvedStoresId = stores_id || null
+    let resolvedStoresId = linked_store_id || null
 
     if (parent_store_id) {
       // Sub-account: inherit everything from the owner's store_profiles row
       const { data: parent, error: parentErr } = await supabase
         .from('store_profiles')
-        .select('store_name, store_number, county, address, stores_id, parent_store_id')
+        .select('store_name, store_number, county, address, linked_store_id, parent_store_id')
         .eq('id', parent_store_id)
         .single()
 
@@ -129,17 +129,17 @@ export default async function handler(req, res) {
       resolvedStoreNumber = parent.store_number
       resolvedCounty      = parent.county
       resolvedAddress     = parent.address
-      resolvedStoresId    = parent.stores_id
+      resolvedStoresId    = parent.linked_store_id
     } else {
-      // Owner account: stores_id is required — the store must exist on the map
-      if (!stores_id) {
-        return res.status(400).json({ error: 'stores_id is required — select an existing map store' })
+      // Owner account: linked_store_id is required — the store must exist on the map
+      if (!linked_store_id) {
+        return res.status(400).json({ error: 'linked_store_id is required — select an existing map store' })
       }
 
       const { data: mapStore, error: mapErr } = await supabase
         .from('stores')
         .select('id, name, county, address, city')
-        .eq('id', stores_id)
+        .eq('id', linked_store_id)
         .single()
 
       if (mapErr || !mapStore) {
@@ -174,7 +174,7 @@ export default async function handler(req, res) {
       is_active: true,
       store_role,
       parent_store_id: parent_store_id || null,
-      stores_id: resolvedStoresId,
+      linked_store_id: resolvedStoresId,
     }
 
     const { error: profileErr } = await supabase
@@ -192,7 +192,7 @@ export default async function handler(req, res) {
       email,
       store_role,
       parent_store_id: parent_store_id || null,
-      stores_id: resolvedStoresId,
+      linked_store_id: resolvedStoresId,
     })
   }
 

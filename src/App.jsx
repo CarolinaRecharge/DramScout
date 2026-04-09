@@ -6518,7 +6518,7 @@ export default function App() {
                           </div>
 
                           {isNewStore && (() => {
-                            const selectedMapStore = mapStores.find(s => s.id === storeModalForm.stores_id)
+                            const selectedMapStore = mapStores.find(s => s.id === storeModalForm.linked_store_id)
                             const filteredMapStores = mapStores.filter(s => {
                               const q = mapStoreSearch.toLowerCase()
                               return !q || s.name.toLowerCase().includes(q) || (s.city || '').toLowerCase().includes(q) || (s.county || '').toLowerCase().includes(q)
@@ -6534,7 +6534,7 @@ export default function App() {
                                     style={{ width: '100%' }}
                                     placeholder="Search by store name, city, or county…"
                                     value={mapStoreSearch}
-                                    onChange={e => { setMapStoreSearch(e.target.value); setStoreModalForm(f => ({ ...f, stores_id: undefined })) }}
+                                    onChange={e => { setMapStoreSearch(e.target.value); setStoreModalForm(f => ({ ...f, linked_store_id: undefined })) }}
                                   />
                                 </div>
 
@@ -6547,10 +6547,10 @@ export default function App() {
                                     {filteredMapStores.map(s => (
                                       <div
                                         key={s.id}
-                                        onClick={() => { setStoreModalForm(f => ({ ...f, stores_id: s.id })); setMapStoreSearch('') }}
-                                        style={{ padding: '8px 12px', borderBottom: '1px solid var(--rule)', cursor: 'pointer', background: storeModalForm.stores_id === s.id ? 'rgba(193,125,14,0.1)' : 'transparent' }}
-                                        onMouseEnter={e => { if (storeModalForm.stores_id !== s.id) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-                                        onMouseLeave={e => { if (storeModalForm.stores_id !== s.id) e.currentTarget.style.background = 'transparent' }}
+                                        onClick={() => { setStoreModalForm(f => ({ ...f, linked_store_id: s.id })); setMapStoreSearch('') }}
+                                        style={{ padding: '8px 12px', borderBottom: '1px solid var(--rule)', cursor: 'pointer', background: storeModalForm.linked_store_id === s.id ? 'rgba(193,125,14,0.1)' : 'transparent' }}
+                                        onMouseEnter={e => { if (storeModalForm.linked_store_id !== s.id) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                                        onMouseLeave={e => { if (storeModalForm.linked_store_id !== s.id) e.currentTarget.style.background = 'transparent' }}
                                       >
                                         <div style={{ fontSize: 11, color: 'var(--parchment)' }}>{s.name}</div>
                                         <div style={{ fontSize: 10, color: 'var(--ghost)', marginTop: 2 }}>
@@ -6572,7 +6572,7 @@ export default function App() {
                                     </div>
                                     <button
                                       style={{ background: 'none', border: 'none', color: 'var(--ghost)', cursor: 'pointer', fontSize: 12, padding: 4 }}
-                                      onClick={() => setStoreModalForm(f => ({ ...f, stores_id: undefined }))}
+                                      onClick={() => setStoreModalForm(f => ({ ...f, linked_store_id: undefined }))}
                                       title="Change store"
                                     >✕</button>
                                   </div>
@@ -6620,7 +6620,7 @@ export default function App() {
                               className="admin-role-select"
                               style={{ cursor: 'pointer', padding: '8px 16px', background: 'rgba(193,125,14,0.15)', border: '1px solid rgba(193,125,14,0.5)', color: 'var(--gold)', borderRadius: 4, fontSize: 10, letterSpacing: '0.1em' }}
                               onClick={handleStoreAccountSubmit}
-                              disabled={storeModalSubmitting || !storeModalForm.email || !storeModalForm.password || (isNewStore && !storeModalForm.stores_id)}
+                              disabled={storeModalSubmitting || !storeModalForm.email || !storeModalForm.password || (isNewStore && !storeModalForm.linked_store_id)}
                             >
                               {storeModalSubmitting ? 'CREATING…' : 'CREATE'}
                             </button>

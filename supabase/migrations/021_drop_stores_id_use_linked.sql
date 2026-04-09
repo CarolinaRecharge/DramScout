@@ -1,19 +1,19 @@
 -- ─────────────────────────────────────────────────────────────────────────────
--- 020_store_profiles_link_stores.sql
+-- 021_drop_stores_id_use_linked.sql
 --
--- Links store_profiles rows to real stores on the map (the `stores` table)
--- using the existing linked_store_id column (added in migration 012).
+-- Migration 020 added stores_id to store_profiles, but migration 012 already
+-- added linked_store_id for the same purpose (linking a portal account to the
+-- public stores map). Two FKs from store_profiles → stores causes PostgREST to
+-- error ("more than one relationship found") on barrel picks embed queries.
 --
--- If a store's name is updated in `stores`, all linked store_profiles rows
--- have their store_name kept in sync automatically via a trigger.
---
--- NOTE: store_profiles already has linked_store_id UUID REFERENCES stores(id)
--- from migration 012. We must NOT add another FK to stores — PostgREST errors
--- when two FKs exist between the same pair of tables ("more than one
--- relationship found"). The trigger below uses linked_store_id as the join key.
+-- Fix: drop the duplicate stores_id column and move all logic to linked_store_id.
+-- The name-sync trigger is also corrected to join on linked_store_id.
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- Sync function: keep store_name up to date whenever stores.name changes.
+-- 1. Drop the duplicate FK column added in migration 020
+ALTER TABLE store_profiles DROP COLUMN IF EXISTS stores_id;
+
+-- 2. Correct the sync trigger to use linked_store_id (the canonical FK)
 CREATE OR REPLACE FUNCTION sync_store_profile_name()
 RETURNS TRIGGER
 LANGUAGE plpgsql
