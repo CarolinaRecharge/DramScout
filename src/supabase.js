@@ -452,6 +452,28 @@ export async function updateUserHandle(userId, handle) {
   if (error) throw new Error(error.message)
 }
 
+// Fetch favorite filter keywords for a user
+export async function fetchFavoriteFilters(userId) {
+  if (!supabase || !userId) return []
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('favorite_filters')
+    .eq('user_id', userId)
+    .single()
+  if (error) { console.warn('fetchFavoriteFilters:', error.message); return [] }
+  return data?.favorite_filters || []
+}
+
+// Persist the user's favorite filter keyword list
+export async function saveFavoriteFilters(userId, filters) {
+  if (!supabase || !userId) return false
+  const { error } = await supabase
+    .from('profiles')
+    .upsert({ user_id: userId, favorite_filters: filters }, { onConflict: 'user_id' })
+  if (error) { console.warn('saveFavoriteFilters:', error.message); return false }
+  return true
+}
+
 // Fetch all profiles with their roles merged in (admin use)
 export async function fetchAllProfilesWithRoles() {
   if (!supabase) return []

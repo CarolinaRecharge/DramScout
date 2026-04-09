@@ -1,15 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import BarrelPickCard from './BarrelPickCard.jsx'
 
-const DISTILLERY_FILTERS = [
-  'All',
-  'Buffalo Trace',
-  'Heaven Hill',
-  'Four Roses',
-  'Wild Turkey',
-  'MGP',
-  'Brown-Forman',
-]
 
 const SECTION_STYLES = `
   .bp-section { margin-bottom: 4px; }
@@ -47,35 +38,6 @@ const SECTION_STYLES = `
   }
   .bp-chevron.open { transform: rotate(180deg); }
 
-  .bp-distillery-row {
-    display: flex;
-    gap: 6px;
-    padding: 0 16px 12px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .bp-distillery-row::-webkit-scrollbar { display: none; }
-
-  .bp-distillery-chip {
-    font-family: 'DM Mono', 'Courier Prime', monospace;
-    font-size: 9px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    padding: 5px 10px;
-    border-radius: 20px;
-    border: 1px solid var(--worn);
-    background: var(--card-2);
-    color: var(--parchment);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
-    flex-shrink: 0;
-  }
-  .bp-distillery-chip.active {
-    background: var(--gold);
-    border-color: var(--gold);
-    color: var(--ink);
-  }
 
   .bp-picks-list { padding: 0 16px; }
 
@@ -157,7 +119,6 @@ export default function ScoutTab({ searchQuery = '' }) {
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(null)
   const [expanded, setExpanded] = useState(true)
-  const [distilleryFilter, setDistilleryFilter] = useState('All')
   const [location, setLocation] = useState(null)
   const [locationDenied, setLocationDenied] = useState(false)
   const [offset, setOffset] = useState(0)
@@ -190,9 +151,6 @@ export default function ScoutTab({ searchQuery = '' }) {
         params.set('lat', String(location.lat))
         params.set('lng', String(location.lng))
       }
-      if (distilleryFilter !== 'All') {
-        params.set('distillery', distilleryFilter)
-      }
 
       const res = await fetch(`/api/barrel-picks?${params}`)
       const data = await res.json()
@@ -208,16 +166,16 @@ export default function ScoutTab({ searchQuery = '' }) {
       if (!append) setPicks([])
     }
     setLoading(false)
-  }, [location, distilleryFilter])
+  }, [location])
 
-  // Fetch when location resolves or filter changes
+  // Fetch when location resolves
   useEffect(() => {
     // Only fetch once we know location status (resolved or denied)
     if (location !== null || locationDenied) {
       setOffset(0)
       fetchPicks(0, false)
     }
-  }, [location, locationDenied, distilleryFilter])
+  }, [location, locationDenied])
 
   // Client-side search filter
   const filteredPicks = searchQuery
@@ -251,18 +209,6 @@ export default function ScoutTab({ searchQuery = '' }) {
           </div>
         )}
 
-        {/* Distillery filter chips */}
-        <div className="bp-distillery-row">
-          {DISTILLERY_FILTERS.map(d => (
-            <button
-              key={d}
-              className={`bp-distillery-chip${distilleryFilter === d ? ' active' : ''}`}
-              onClick={() => setDistilleryFilter(d)}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
 
         {/* Pick cards */}
         <div className="bp-picks-list">
