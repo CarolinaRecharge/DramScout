@@ -532,6 +532,60 @@ export async function deleteCommentAdmin(commentId) {
   return error ? { ok: false, error: error.message } : { ok: true }
 }
 
+// ── Barrel pick comments ──────────────────────────────────────────────────────
+export async function fetchPickComments(pickId) {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('barrel_pick_comments')
+    .select('*')
+    .eq('pick_id', pickId)
+    .order('created_at', { ascending: true })
+  if (error) { console.warn('fetchPickComments:', error.message); return [] }
+  return data || []
+}
+
+export async function postPickComment(pickId, userId, handle, body, parentId = null) {
+  if (!supabase) return null
+  const payload = { pick_id: pickId, user_id: userId, handle, body }
+  if (parentId) payload.parent_id = parentId
+  const { data, error } = await supabase
+    .from('barrel_pick_comments')
+    .insert(payload)
+    .select()
+    .single()
+  if (error) { console.warn('postPickComment:', error.message); return null }
+  return data
+}
+
+export async function deletePickComment(commentId, userId) {
+  if (!supabase) return { ok: false, error: 'No connection' }
+  const { error } = await supabase
+    .from('barrel_pick_comments')
+    .delete()
+    .eq('id', commentId)
+    .eq('user_id', userId)
+  return error ? { ok: false, error: error.message } : { ok: true }
+}
+
+export async function deletePickCommentAsOwner(commentId) {
+  // Store owner — RLS enforces pick ownership
+  if (!supabase) return { ok: false, error: 'No connection' }
+  const { error } = await supabase
+    .from('barrel_pick_comments')
+    .delete()
+    .eq('id', commentId)
+  return error ? { ok: false, error: error.message } : { ok: true }
+}
+
+export async function updateStoreCommentsEnabled(storeId, enabled) {
+  if (!supabase) return { ok: false, error: 'No connection' }
+  const { error } = await supabase
+    .from('store_profiles')
+    .update({ comments_enabled: enabled })
+    .eq('id', storeId)
+  return error ? { ok: false, error: error.message } : { ok: true }
+}
+
 // Admin: delete any sighting (requires RLS policy allowing admin role)
 export async function deleteSightingAdmin(sightingId) {
   if (!supabase) return { ok: false, error: 'No connection' }

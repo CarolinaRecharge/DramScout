@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { supabase } from '../supabase.js'
+import { useState, useEffect } from 'react'
+import { supabase, fetchPickComments, postPickComment, deletePickComment, deletePickCommentAsOwner, fetchUserHandle } from '../supabase.js'
 
 // CSS tokens matching App.jsx (customer app) color scheme
 // The spec uses store-portal token names; we map them to App.jsx tokens here.
@@ -233,54 +233,16 @@ const CARD_STYLES = `
     padding-left: 11px;
   }
 
-  /* ── Report button ── */
-  .bp-report-btn {
+  .bp-comment-count {
     font-family: 'DM Mono', 'Courier Prime', monospace;
     font-size: 9px;
-    letter-spacing: 0.05em;
     color: var(--ghost);
-    background: none;
-    border: 1px solid var(--worn);
-    border-radius: 4px;
-    padding: 5px 8px;
-    cursor: pointer;
-    transition: color 0.2s, border-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 3px;
     white-space: nowrap;
     flex-shrink: 0;
   }
-  .bp-report-btn:hover { color: var(--gold); border-color: var(--gold); }
-  .bp-report-btn.reported { color: var(--ghost); border-color: var(--rule); cursor: default; }
-
-  .bp-report-popover {
-    position: absolute;
-    right: 0;
-    bottom: calc(100% + 6px);
-    background: var(--card-2);
-    border: 1px solid var(--worn);
-    border-radius: 8px;
-    padding: 6px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    z-index: 10;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-    min-width: 150px;
-  }
-  .bp-report-option {
-    font-family: 'DM Mono', 'Courier Prime', monospace;
-    font-size: 9px;
-    letter-spacing: 0.05em;
-    background: none;
-    border: none;
-    color: var(--parchment);
-    padding: 6px 10px;
-    cursor: pointer;
-    text-align: left;
-    border-radius: 4px;
-    transition: background 0.15s;
-    white-space: nowrap;
-  }
-  .bp-report-option:hover { background: var(--card); }
 
   /* ── Lightbox ── */
   .bp-lightbox {
@@ -481,6 +443,73 @@ const CARD_STYLES = `
     .bp-detail-photo-sec { width: 100%; height: 260px; flex-shrink: 0; min-height: unset; }
     .bp-detail-close { top: 10px; right: 10px; }
   }
+
+  /* ── Comments ── */
+  .bp-comments { margin-top: 4px; }
+  .bp-comments-header {
+    font-family: 'DM Mono', 'Courier Prime', monospace;
+    font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--ghost); margin-bottom: 10px;
+  }
+  .bp-comments-empty {
+    font-family: 'DM Mono', 'Courier Prime', monospace;
+    font-size: 10px; color: var(--ghost); padding: 8px 0;
+  }
+  .bp-comments-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .bp-comment {
+    padding: 8px 10px;
+    background: var(--card-2);
+    border-radius: 6px;
+    border: 1px solid var(--rule);
+  }
+  .bp-comment-meta {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;
+  }
+  .bp-comment-handle {
+    font-family: 'DM Mono', 'Courier Prime', monospace;
+    font-size: 10px; color: var(--gold); font-weight: 600;
+  }
+  .bp-comment-time {
+    font-family: 'DM Mono', 'Courier Prime', monospace;
+    font-size: 9px; color: var(--ghost);
+  }
+  .bp-comment-del {
+    font-family: 'DM Mono', 'Courier Prime', monospace;
+    font-size: 11px; color: var(--ghost);
+    background: none; border: none; cursor: pointer; padding: 0;
+    margin-left: auto; line-height: 1; transition: color 0.15s;
+  }
+  .bp-comment-del:hover { color: var(--urgent); }
+  .bp-comment-body {
+    font-family: 'Libre Baskerville', 'Cormorant Garamond', serif;
+    font-size: 12px; color: var(--parchment); line-height: 1.5;
+  }
+  .bp-comment-form { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+  .bp-comment-input {
+    width: 100%; box-sizing: border-box;
+    background: var(--card-2); border: 1px solid var(--rule);
+    border-radius: 6px; color: var(--paper);
+    font-family: 'Libre Baskerville', 'Cormorant Garamond', serif;
+    font-size: 12px; padding: 8px 10px; resize: none; outline: none;
+    transition: border-color 0.2s;
+  }
+  .bp-comment-input:focus { border-color: var(--gold); }
+  .bp-comment-input::placeholder { color: var(--ghost); }
+  .bp-comment-submit {
+    align-self: flex-end;
+    font-family: 'DM Mono', 'Courier Prime', monospace;
+    font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+    background: var(--gold); color: var(--card); border: none;
+    border-radius: 4px; padding: 6px 14px; cursor: pointer;
+    transition: opacity 0.2s; font-weight: 600;
+  }
+  .bp-comment-submit:disabled { opacity: 0.45; cursor: default; }
+  .bp-comment-submit:not(:disabled):hover { opacity: 0.85; }
+  .bp-comment-signin {
+    font-family: 'DM Mono', 'Courier Prime', monospace;
+    font-size: 10px; color: var(--ghost);
+    padding: 8px 0; margin-top: 4px;
+  }
 `
 
 const STATUS_LABEL = {
@@ -499,16 +528,68 @@ function GlencairnIcon({ color = 'var(--worn)' }) {
   )
 }
 
-export default function BarrelPickCard({ pick, session, onReported }) {
+export default function BarrelPickCard({ pick, session, defaultDetailOpen, onDetailClose }) {
   const [photoIndex, setPhotoIndex] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
   const [notesExpanded, setNotesExpanded] = useState(false)
-  const [reportOpen, setReportOpen] = useState(false)
-  const [reported, setReported] = useState(false)
-  const [reportLoading, setReportLoading] = useState(false)
-  const [detailOpen, setDetailOpen] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(defaultDetailOpen || false)
   const [detailPhotoIndex, setDetailPhotoIndex] = useState(0)
+  const [comments, setComments] = useState([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [commentInput, setCommentInput] = useState('')
+  const [commentPosting, setCommentPosting] = useState(false)
+  const [userHandle, setUserHandle] = useState(null)
+  const [localSession, setLocalSession] = useState(null)
+
+  // Self-fetch session so commenting works regardless of whether parent passes session prop
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setLocalSession(data.session))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setLocalSession(sess)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const activeSession = localSession || session
+  const isStoreOwner = Boolean(pick.store_id && activeSession?.user?.id === pick.store_id)
+
+  useEffect(() => {
+    if (!detailOpen || !pick.comments_enabled) return
+    setCommentsLoading(true)
+    fetchPickComments(pick.id).then(setComments).finally(() => setCommentsLoading(false))
+  }, [detailOpen, pick.id, pick.comments_enabled])
+
+  useEffect(() => {
+    if (!activeSession?.user?.id) return
+    fetchUserHandle(activeSession.user.id).then(h => setUserHandle(h))
+  }, [activeSession?.user?.id])
+
+  async function handlePostComment() {
+    if (!activeSession?.user?.id || !commentInput.trim()) return
+    const handle = userHandle || activeSession.user.email?.split('@')[0] || 'User'
+    setCommentPosting(true)
+    const newComment = await postPickComment(pick.id, activeSession.user.id, handle, commentInput.trim())
+    if (newComment) {
+      setComments(prev => [...prev, newComment])
+      setCommentInput('')
+    }
+    setCommentPosting(false)
+  }
+
+  async function handleDeleteComment(commentId, commentUserId) {
+    let result
+    if (isStoreOwner) {
+      result = await deletePickCommentAsOwner(commentId)
+    } else {
+      result = await deletePickComment(commentId, activeSession.user.id)
+    }
+    if (result.ok) setComments(prev => prev.filter(c => c.id !== commentId))
+  }
+
+  function formatCommentTime(ts) {
+    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
 
   const photos = pick.photo_urls || []
   const hasPhotos = photos.length > 0
@@ -521,37 +602,6 @@ export default function BarrelPickCard({ pick, session, onReported }) {
   function advancePhoto() {
     if (photos.length <= 1) return
     setPhotoIndex(i => (i + 1) % photos.length)
-  }
-
-  async function submitReport(reportType) {
-    if (reportLoading || reported) return
-    setReportLoading(true)
-    setReportOpen(false)
-    try {
-      const { data: { session: sess } } = await supabase.auth.getSession()
-      const token = sess?.access_token
-      if (!token) {
-        alert('Sign in to report availability.')
-        setReportLoading(false)
-        return
-      }
-      const res = await fetch(`/api/barrel-picks/${pick.id}/report`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ report_type: reportType }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setReported(true)
-        onReported && onReported(pick.id, data.reports_count)
-      }
-    } catch (err) {
-      console.error('report error:', err)
-    }
-    setReportLoading(false)
   }
 
   const row2Parts = [pick.distillery, pick.expression].filter(Boolean)
@@ -665,27 +715,15 @@ export default function BarrelPickCard({ pick, session, onReported }) {
               )}
             </div>
 
-            {/* Community report */}
-            <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              {reported ? (
-                <button className="bp-report-btn reported">Reported ✓</button>
-              ) : (
-                <button
-                  className="bp-report-btn"
-                  onClick={() => setReportOpen(o => !o)}
-                  disabled={reportLoading}
-                >
-                  👍 Still there?
-                </button>
-              )}
-              {reportOpen && !reported && (
-                <div className="bp-report-popover">
-                  <button className="bp-report-option" onClick={() => submitReport('still_available')}>✓ Still Available</button>
-                  <button className="bp-report-option" onClick={() => submitReport('low_stock')}>↓ Going Fast</button>
-                  <button className="bp-report-option" onClick={() => submitReport('sold_out')}>✗ Sold Out</button>
-                </div>
-              )}
-            </div>
+            {pick.comments_count > 0 && (
+              <span className="bp-comment-count">
+                <svg width="10" height="10" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+                  <path d="M2 2h10v8H8l-3 2v-2H2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill="none"/>
+                </svg>
+                {pick.comments_count}
+              </span>
+            )}
+
           </div>
         </div>
       </div>
@@ -726,9 +764,9 @@ export default function BarrelPickCard({ pick, session, onReported }) {
 
       {/* ── Detail modal ── */}
       {detailOpen && (
-        <div className="bp-detail-overlay" onClick={() => setDetailOpen(false)}>
+        <div className="bp-detail-overlay" onClick={() => { setDetailOpen(false); onDetailClose?.() }}>
           <div className="bp-detail-modal" onClick={e => e.stopPropagation()}>
-            <button className="bp-detail-close" onClick={() => setDetailOpen(false)}>✕</button>
+            <button className="bp-detail-close" onClick={() => { setDetailOpen(false); onDetailClose?.() }}>✕</button>
 
             {/* Photo section */}
             <div className="bp-detail-photo-sec">
@@ -854,6 +892,58 @@ export default function BarrelPickCard({ pick, session, onReported }) {
                   )}
                 </div>
               </div>
+
+              {/* Comments section */}
+              {pick.comments_enabled && (
+                <div className="bp-comments">
+                  <hr className="bp-detail-divider" />
+                  <div className="bp-comments-header">Comments</div>
+                  {commentsLoading ? (
+                    <div className="bp-comments-empty">Loading…</div>
+                  ) : comments.length === 0 ? (
+                    <div className="bp-comments-empty">No comments yet.</div>
+                  ) : (
+                    <div className="bp-comments-list">
+                      {comments.map(c => (
+                        <div key={c.id} className="bp-comment">
+                          <div className="bp-comment-meta">
+                            <span className="bp-comment-handle">{c.handle}</span>
+                            <span className="bp-comment-time">{formatCommentTime(c.created_at)}</span>
+                            {(activeSession?.user?.id === c.user_id || isStoreOwner) && (
+                              <button
+                                className="bp-comment-del"
+                                onClick={() => handleDeleteComment(c.id, c.user_id)}
+                              >×</button>
+                            )}
+                          </div>
+                          <div className="bp-comment-body">{c.body}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {activeSession ? (
+                    <div className="bp-comment-form">
+                      <textarea
+                        className="bp-comment-input"
+                        placeholder="Add a comment…"
+                        value={commentInput}
+                        onChange={e => setCommentInput(e.target.value)}
+                        rows={2}
+                        maxLength={1000}
+                      />
+                      <button
+                        className="bp-comment-submit"
+                        onClick={handlePostComment}
+                        disabled={commentPosting || !commentInput.trim()}
+                      >
+                        {commentPosting ? 'Posting…' : 'Post'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bp-comment-signin">Sign in to leave a comment.</div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

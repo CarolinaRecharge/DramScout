@@ -1,0 +1,17 @@
+// A list of features and or Ideas to impement on the app
+
+1: Store owners can push a pole or information to customers in their region(county) about barrel picks. (I saw a post from the King ABC stoere about options on what kind of BP to go for)
+    -Also need a good way for customers(users) to respond to the store information. Also the customers should be able to send requests and comments direct to the store?(messaging the store owner directly could get tricky and can become like spam) 
+2: Data collection and reporting for store owners. 
+    -See how many users viewed the barrel picks
+    -How many sightings have been at their store compared to other stores in the county 
+    -Top viewed BP brands in the county and Statewide
+    -Data around events
+        -Users who have their county set as default vs those out of the county
+    -mentions of the store @ handle? 
+    -age metrics of users interacting with the stores events and picks. Could compare to state wide averages
+3: Age verification at landing page, should be a cashed information and saved in the user profile to keep user from having to put in all the time
+4: at the end of a drop or store event, the app should show data and stats on the event(# of people attending, # of users who were intrested, time stamp of first arrival, time when over 50% were in line, # of users who were removed from line due to verification, ect)
+
+App strategy
+  - Things need to be implemented in a good way to work on a website and on a native iOS or android app.

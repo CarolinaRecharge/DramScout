@@ -27,7 +27,7 @@ async function handleGet(id, res) {
     .select(`
       *,
       store_profiles (
-        id, store_name, address, county,
+        id, store_name, address, county, comments_enabled,
         stores ( id, lat, lng, name, address, city, state )
       ),
       barrel_pick_reports ( id, report_type, user_id, created_at )
@@ -56,6 +56,7 @@ async function handleGet(id, res) {
     store_state: linkedStore?.state || null,
     store_lat: linkedStore?.lat || null,
     store_lng: linkedStore?.lng || null,
+    comments_enabled: storeData?.comments_enabled ?? true,
     reports_count: reportCounts,
   })
 }
