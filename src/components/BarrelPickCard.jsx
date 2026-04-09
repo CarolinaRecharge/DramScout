@@ -860,7 +860,7 @@ export default function BarrelPickCard({ pick, session, defaultDetailOpen, onDet
 
               <hr className="bp-detail-divider" />
 
-              {/* Footer: store info + report button */}
+              {/* Footer: store info */}
               <div className="bp-detail-footer">
                 <div className="bp-store-info">
                   <div className="bp-detail-store-name">
@@ -869,26 +869,6 @@ export default function BarrelPickCard({ pick, session, defaultDetailOpen, onDet
                   </div>
                   {pick.distance_miles != null && (
                     <div className="bp-detail-store-dist">{pick.distance_miles} mi away</div>
-                  )}
-                </div>
-                <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-                  {reported ? (
-                    <button className="bp-report-btn reported">Reported ✓</button>
-                  ) : (
-                    <button
-                      className="bp-report-btn"
-                      onClick={() => setReportOpen(o => !o)}
-                      disabled={reportLoading}
-                    >
-                      👍 Still there?
-                    </button>
-                  )}
-                  {reportOpen && !reported && (
-                    <div className="bp-report-popover">
-                      <button className="bp-report-option" onClick={() => submitReport('still_available')}>✓ Still Available</button>
-                      <button className="bp-report-option" onClick={() => submitReport('low_stock')}>↓ Going Fast</button>
-                      <button className="bp-report-option" onClick={() => submitReport('sold_out')}>✗ Sold Out</button>
-                    </div>
                   )}
                 </div>
               </div>
