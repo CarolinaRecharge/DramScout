@@ -40,7 +40,17 @@ export default async function handler(req, res) {
   const { data: { user }, error: authError } = await supabase.auth.getUser(jwt)
   if (authError || !user) return res.status(401).json({ error: 'Invalid session' })
 
-  // RLS policy "store_own_programs" (store_id = auth.uid()) enforces ownership.
+  // Cashier accounts are not permitted to run or re-run draws.
+  const { data: storeProfile } = await supabase
+    .from('store_profiles')
+    .select('store_role')
+    .eq('id', user.id)
+    .single()
+  if (storeProfile?.store_role === 'cashier') {
+    return res.status(403).json({ error: 'Cashier accounts cannot run draws' })
+  }
+
+  // RLS policy "store_own_programs" uses get_effective_store_id() to enforce ownership.
   // Re-draws are allowed — no status guard here.
   const { data: program, error: progError } = await supabase
     .from('lottery_programs')

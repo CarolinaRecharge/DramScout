@@ -527,7 +527,8 @@ const EMPTY_FORM = {
   bottle_count: 1
 }
 
-export default function StoreLotteries({ storeProfile }) {
+export default function StoreLotteries({ storeProfile, storeRole, effectiveStoreId }) {
+  const isCashier = storeRole === 'cashier'
   const [programs, setPrograms] = useState([])
   const [entryCounts, setEntryCounts] = useState({})
   const [loading, setLoading] = useState(true)
@@ -681,12 +682,12 @@ export default function StoreLotteries({ storeProfile }) {
           </div>
 
           <div className="program-actions">
-            {p.status === 'upcoming' && (
+            {!isCashier && p.status === 'upcoming' && (
               <button className="program-action-btn btn-activate" onClick={() => handleActivate(p.id)}>
                 Activate
               </button>
             )}
-            {p.status === 'active' && (
+            {!isCashier && p.status === 'active' && (
               <button
                 className="program-action-btn btn-draw"
                 disabled={isDrawing}
@@ -698,7 +699,7 @@ export default function StoreLotteries({ storeProfile }) {
                 }
               </button>
             )}
-            {p.status === 'drawn' && (
+            {!isCashier && p.status === 'drawn' && (
               <button
                 className="program-action-btn btn-redraw"
                 disabled={isDrawing}

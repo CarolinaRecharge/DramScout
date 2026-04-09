@@ -3986,6 +3986,14 @@ export default function App() {
   const [adminSearchResults, setAdminSearchResults] = useState([])
   const [allUsers, setAllUsers] = useState(null)         // null = not loaded yet
   const [allUsersLoading, setAllUsersLoading] = useState(false)
+  const [storeAccounts, setStoreAccounts] = useState(null)   // null = not loaded
+  const [storeAccountsLoading, setStoreAccountsLoading] = useState(false)
+  const [storeAccountsError, setStoreAccountsError] = useState(null)
+  const [storeAccountModal, setStoreAccountModal] = useState(null)
+  // storeAccountModal: null | { mode: 'new-store' | 'add-account', storeId?, storeName? }
+  const [storeModalForm, setStoreModalForm] = useState({})
+  const [storeModalSubmitting, setStoreModalSubmitting] = useState(false)
+  const [storeModalError, setStoreModalError] = useState(null)
   const [favorites, setFavorites] = useState(new Set())
   const [favStoreSearch, setFavStoreSearch] = useState('')
   const [userSightings, setUserSightings] = useState([])
@@ -4182,6 +4190,95 @@ export default function App() {
       setAllUsersLoading(false)
     })
   }, [session, userRole])
+
+  // ── Load store accounts when admin session is ready (or after a create) ─
+  useEffect(() => {
+    const isAdminNow = session?.user?.email === ADMIN_EMAIL || userRole === 'admin'
+    if (!isAdminNow || storeAccounts !== null) return
+    loadStoreAccounts()
+  }, [session, userRole, storeAccounts])
+
+  async function loadStoreAccounts() {
+    setStoreAccountsLoading(true)
+    setStoreAccountsError(null)
+    try {
+      const sess = await getSession()
+      const res = await fetch('/api/admin/store-accounts', {
+        headers: { Authorization: `Bearer ${sess.access_token}` }
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to load stores')
+      const json = await res.json()
+      setStoreAccounts(json.stores || [])
+    } catch (err) {
+      setStoreAccountsError(err.message)
+    } finally {
+      setStoreAccountsLoading(false)
+    }
+  }
+
+  async function handleStoreAccountSubmit() {
+    setStoreModalSubmitting(true)
+    setStoreModalError(null)
+    try {
+      const sess = await getSession()
+      const body = { ...storeModalForm }
+      if (storeAccountModal?.mode === 'add-account') {
+        body.parent_store_id = storeAccountModal.storeId
+      }
+      const res = await fetch('/api/admin/store-accounts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sess.access_token}`
+        },
+        body: JSON.stringify(body)
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to create account')
+      setStoreAccountModal(null)
+      setStoreModalForm({})
+      setStoreAccounts(null)  // trigger reload
+    } catch (err) {
+      setStoreModalError(err.message)
+    } finally {
+      setStoreModalSubmitting(false)
+    }
+  }
+
+  async function handleToggleStoreActive(userId, currentActive) {
+    const sess = await getSession()
+    const res = await fetch('/api/admin/store-accounts', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sess.access_token}`
+      },
+      body: JSON.stringify({ userId, is_active: !currentActive })
+    })
+    if (res.ok) {
+      setStoreAccounts(prev => prev ? prev.map(store => ({
+        ...store,
+        accounts: store.accounts.map(a => a.id === userId ? { ...a, is_active: !currentActive } : a)
+      })) : prev)
+    }
+  }
+
+  async function handleChangeStoreRole(userId, newRole) {
+    const sess = await getSession()
+    const res = await fetch('/api/admin/store-accounts', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sess.access_token}`
+      },
+      body: JSON.stringify({ userId, store_role: newRole })
+    })
+    if (res.ok) {
+      setStoreAccounts(prev => prev ? prev.map(store => ({
+        ...store,
+        accounts: store.accounts.map(a => a.id === userId ? { ...a, store_role: newRole } : a)
+      })) : prev)
+    }
+  }
 
   // ── Keep handleInput in sync with reporterHandle ─────────────────────────
   useEffect(() => { setHandleInput(reporterHandle) }, [reporterHandle])
@@ -6324,6 +6421,160 @@ export default function App() {
                       </div>
                     )}
                   </div>
+                )
+              })()}
+
+              {/* ── Store Accounts ───────────────────────────────────────── */}
+              {isAdmin && (() => {
+                const ROLE_COLORS = {
+                  owner:   { color: '#4A9ECA', bg: 'rgba(74,158,202,0.12)'  },
+                  manager: { color: '#9E5EA8', bg: 'rgba(158,94,168,0.12)'  },
+                  cashier: { color: 'var(--ghost)', bg: 'rgba(255,255,255,0.05)' },
+                }
+                const isNewStore  = storeAccountModal?.mode === 'new-store'
+                const isAddAcct   = storeAccountModal?.mode === 'add-account'
+                return (
+                  <>
+                    <div className="admin-panel">
+                      <div className="admin-panel-header">
+                        <div className="admin-panel-title">⚙ STORE ACCOUNTS</div>
+                        <button
+                          className="admin-role-select"
+                          style={{ cursor: 'pointer', padding: '4px 10px', background: 'rgba(193,125,14,0.12)', border: '1px solid rgba(193,125,14,0.4)', color: 'var(--gold)', borderRadius: 4, fontSize: 10, letterSpacing: '0.1em' }}
+                          onClick={() => { setStoreAccountModal({ mode: 'new-store' }); setStoreModalForm({ store_role: 'owner' }); setStoreModalError(null) }}
+                        >
+                          + NEW STORE
+                        </button>
+                      </div>
+
+                      {storeAccountsLoading && <div className="admin-loading">Loading stores…</div>}
+                      {storeAccountsError  && <div className="admin-empty" style={{ color: '#e06060' }}>{storeAccountsError}</div>}
+
+                      {!storeAccountsLoading && !storeAccountsError && (storeAccounts || []).length === 0 && (
+                        <div className="admin-empty">No store accounts yet.</div>
+                      )}
+
+                      {!storeAccountsLoading && (storeAccounts || []).map(store => (
+                        <div key={store.id} style={{ marginBottom: 16, border: '1px solid var(--rule)', borderRadius: 6, overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--rule)' }}>
+                            <div>
+                              <span style={{ fontSize: 11, color: 'var(--parchment)', fontWeight: 600 }}>{store.store_name}</span>
+                              {store.store_number && <span style={{ fontSize: 10, color: 'var(--ghost)', marginLeft: 8 }}>#{store.store_number}</span>}
+                              {store.county && <span style={{ fontSize: 10, color: 'var(--ghost)', marginLeft: 8 }}>{store.county}</span>}
+                            </div>
+                            <button
+                              style={{ fontSize: 10, letterSpacing: '0.1em', background: 'none', border: '1px solid var(--rule)', color: 'var(--ghost)', borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}
+                              onClick={() => { setStoreAccountModal({ mode: 'add-account', storeId: store.id, storeName: store.store_name }); setStoreModalForm({ store_role: 'manager' }); setStoreModalError(null) }}
+                            >
+                              + ADD ACCOUNT
+                            </button>
+                          </div>
+                          {store.accounts.map(acct => {
+                            const rc = ROLE_COLORS[acct.store_role] || ROLE_COLORS.cashier
+                            return (
+                              <div key={acct.id} className="admin-user-row">
+                                <div className="admin-user-info">
+                                  <div className="admin-user-email">{acct.email || acct.id}</div>
+                                  {acct.contact_name && <div className="admin-user-name">{acct.contact_name}</div>}
+                                </div>
+                                <div className="admin-user-right" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <select
+                                    className="admin-role-select"
+                                    value={acct.store_role || 'owner'}
+                                    onChange={e => handleChangeStoreRole(acct.id, e.target.value)}
+                                  >
+                                    <option value="owner">Owner</option>
+                                    <option value="manager">Manager</option>
+                                    <option value="cashier">Cashier</option>
+                                  </select>
+                                  <span className="admin-role-badge" style={{ color: rc.color, background: rc.bg, fontSize: 9, padding: '2px 6px' }}>
+                                    {(acct.store_role || 'owner').toUpperCase()}
+                                  </span>
+                                  <button
+                                    style={{ fontSize: 9, letterSpacing: '0.08em', background: 'none', border: `1px solid ${acct.is_active ? 'var(--fresh)' : 'var(--worn)'}`, color: acct.is_active ? 'var(--fresh)' : 'var(--worn)', borderRadius: 3, padding: '3px 7px', cursor: 'pointer' }}
+                                    onClick={() => handleToggleStoreActive(acct.id, acct.is_active)}
+                                    title={acct.is_active ? 'Click to deactivate' : 'Click to activate'}
+                                  >
+                                    {acct.is_active ? 'ACTIVE' : 'INACTIVE'}
+                                  </button>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* ── Store Account Modal ─────────────────────────────── */}
+                    {storeAccountModal && (
+                      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                        <div style={{ background: 'var(--card)', border: '1px solid var(--rule)', borderRadius: 8, padding: 24, width: '100%', maxWidth: 400 }}>
+                          <div style={{ fontSize: 11, letterSpacing: '0.12em', color: 'var(--gold)', marginBottom: 20, fontWeight: 700 }}>
+                            {isNewStore ? '⚙ NEW STORE' : `⚙ ADD ACCOUNT · ${storeAccountModal.storeName}`}
+                          </div>
+
+                          {isNewStore && (
+                            <>
+                              <label className="admin-panel-title" style={{ display: 'block', marginBottom: 6 }}>Store Name</label>
+                              <input className="admin-search-input" style={{ width: '100%', marginBottom: 12 }} placeholder="ABC Store #042" value={storeModalForm.store_name || ''} onChange={e => setStoreModalForm(f => ({ ...f, store_name: e.target.value }))} />
+                              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                                <div style={{ flex: 1 }}>
+                                  <label className="admin-panel-title" style={{ display: 'block', marginBottom: 6 }}>Store Number</label>
+                                  <input className="admin-search-input" style={{ width: '100%' }} placeholder="042" value={storeModalForm.store_number || ''} onChange={e => setStoreModalForm(f => ({ ...f, store_number: e.target.value }))} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                  <label className="admin-panel-title" style={{ display: 'block', marginBottom: 6 }}>County</label>
+                                  <input className="admin-search-input" style={{ width: '100%' }} placeholder="Wake" value={storeModalForm.county || ''} onChange={e => setStoreModalForm(f => ({ ...f, county: e.target.value }))} />
+                                </div>
+                              </div>
+                            </>
+                          )}
+
+                          <label className="admin-panel-title" style={{ display: 'block', marginBottom: 6 }}>Email</label>
+                          <input className="admin-search-input" style={{ width: '100%', marginBottom: 12 }} type="email" placeholder="store@example.com" value={storeModalForm.email || ''} onChange={e => setStoreModalForm(f => ({ ...f, email: e.target.value }))} />
+
+                          <label className="admin-panel-title" style={{ display: 'block', marginBottom: 6 }}>Temporary Password</label>
+                          <input className="admin-search-input" style={{ width: '100%', marginBottom: 12 }} type="text" placeholder="Temporary password" value={storeModalForm.password || ''} onChange={e => setStoreModalForm(f => ({ ...f, password: e.target.value }))} />
+
+                          {isAddAcct && (
+                            <>
+                              <label className="admin-panel-title" style={{ display: 'block', marginBottom: 6 }}>Role</label>
+                              <select className="admin-role-select" style={{ width: '100%', marginBottom: 12, padding: '8px 10px' }} value={storeModalForm.store_role || 'manager'} onChange={e => setStoreModalForm(f => ({ ...f, store_role: e.target.value }))}>
+                                <option value="owner">Owner</option>
+                                <option value="manager">Manager</option>
+                                <option value="cashier">Cashier</option>
+                              </select>
+                            </>
+                          )}
+
+                          {storeModalError && (
+                            <div style={{ background: 'rgba(139,46,46,0.2)', border: '1px solid #7a2e2e', borderRadius: 4, color: '#e06060', fontSize: 11, padding: '8px 12px', marginBottom: 12 }}>
+                              {storeModalError}
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <button
+                              className="admin-role-select"
+                              style={{ cursor: 'pointer', padding: '8px 16px', background: 'none', border: '1px solid var(--rule)', color: 'var(--ghost)', borderRadius: 4, fontSize: 10, letterSpacing: '0.1em' }}
+                              onClick={() => { setStoreAccountModal(null); setStoreModalForm({}); setStoreModalError(null) }}
+                              disabled={storeModalSubmitting}
+                            >
+                              CANCEL
+                            </button>
+                            <button
+                              className="admin-role-select"
+                              style={{ cursor: 'pointer', padding: '8px 16px', background: 'rgba(193,125,14,0.15)', border: '1px solid rgba(193,125,14,0.5)', color: 'var(--gold)', borderRadius: 4, fontSize: 10, letterSpacing: '0.1em' }}
+                              onClick={handleStoreAccountSubmit}
+                              disabled={storeModalSubmitting || !storeModalForm.email || !storeModalForm.password || (isNewStore && !storeModalForm.store_name)}
+                            >
+                              {storeModalSubmitting ? 'CREATING…' : 'CREATE'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )
               })()}
 
