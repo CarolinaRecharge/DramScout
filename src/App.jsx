@@ -2645,6 +2645,71 @@ body {
   margin-top: 8px;
   text-align: center;
 }
+.fav-filters-search-wrap {
+  position: relative;
+  margin-top: 6px;
+}
+.fav-filters-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--parchment);
+  font-family: 'DM Mono', 'Courier Prime', monospace;
+  font-size: 11px;
+  padding: 8px 28px 8px 10px;
+  outline: none;
+  letter-spacing: 0.03em;
+}
+.fav-filters-search-input:focus { border-color: var(--gold); }
+.fav-filters-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--ghost);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+}
+.fav-filters-search-clear:hover { color: var(--parchment); }
+.fav-filters-dropdown {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  margin-top: 4px;
+  background: var(--card);
+}
+.fav-filters-dropdown::-webkit-scrollbar { width: 4px; }
+.fav-filters-dropdown::-webkit-scrollbar-track { background: transparent; }
+.fav-filters-dropdown::-webkit-scrollbar-thumb { background: var(--worn); border-radius: 2px; }
+.fav-filters-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--rule);
+  cursor: pointer;
+  font-family: 'DM Mono', 'Courier Prime', monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--parchment);
+  transition: background 0.12s;
+}
+.fav-filters-dropdown-item:last-child { border-bottom: none; }
+.fav-filters-dropdown-item:hover { background: rgba(255,255,255,0.04); }
+.fav-filters-dropdown-item.selected { color: var(--gold); }
+.fav-filters-dropdown-check {
+  font-size: 11px;
+  color: var(--gold);
+  flex-shrink: 0;
+  margin-left: 8px;
+}
 
 /* ── Notification Settings ─────────────────────────────────���────────────── */
 .notif-settings-panel {
@@ -4097,6 +4162,7 @@ export default function App() {
   const [storeModalError, setStoreModalError] = useState(null)
   const [favorites, setFavorites] = useState(new Set())
   const [favStoreSearch, setFavStoreSearch] = useState('')
+  const [favFilterSearch, setFavFilterSearch] = useState('')
   const [userSightings, setUserSightings] = useState([])
   const [deleteConfirm, setDeleteConfirm] = useState(null) // sighting id pending delete
   // Comments
@@ -6510,6 +6576,60 @@ export default function App() {
                     )
                   })}
                 </div>
+
+                <div className="fav-filters-category-label">FROM SIGHTINGS</div>
+                {(() => {
+                  const presetLC = new Set([...AVAILABLE_BRAND_FILTERS, ...AVAILABLE_LABEL_FILTERS].map(s => s.toLowerCase()))
+                  const bottleSet = new Set()
+                  ;(dbSightings || []).forEach(s => (s.bottles || []).forEach(b => {
+                    if (b && !presetLC.has(b.toLowerCase())) bottleSet.add(b)
+                  }))
+                  const allBottles = [...bottleSet].sort()
+                  const q = favFilterSearch.trim().toLowerCase()
+                  const visible = q ? allBottles.filter(b => b.toLowerCase().includes(q)) : allBottles
+                  return (
+                    <>
+                      <div className="fav-filters-search-wrap">
+                        <input
+                          className="fav-filters-search-input"
+                          placeholder="Search sighting bottles…"
+                          value={favFilterSearch}
+                          onChange={e => setFavFilterSearch(e.target.value)}
+                        />
+                        {favFilterSearch && (
+                          <button className="fav-filters-search-clear" onClick={() => setFavFilterSearch('')}>✕</button>
+                        )}
+                      </div>
+                      {visible.length === 0 ? (
+                        <div className="fav-filters-empty-note" style={{ marginTop: 6 }}>
+                          {q ? `No bottles match "${favFilterSearch}"` : 'No additional bottles in recent sightings'}
+                        </div>
+                      ) : (
+                        <div className="fav-filters-dropdown">
+                          {visible.map(bottle => {
+                            const selected = favoriteFilters.includes(bottle)
+                            return (
+                              <div
+                                key={bottle}
+                                className={`fav-filters-dropdown-item${selected ? ' selected' : ''}`}
+                                onClick={async () => {
+                                  const next = selected
+                                    ? favoriteFilters.filter(f => f !== bottle)
+                                    : [...favoriteFilters, bottle]
+                                  setFavoriteFilters(next)
+                                  await saveFavoriteFilters(session.user.id, next)
+                                }}
+                              >
+                                <span>{bottle}</span>
+                                {selected && <span className="fav-filters-dropdown-check">✓</span>}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
 
                 {favoriteFilters.length === 0 && (
                   <div className="fav-filters-empty-note">
