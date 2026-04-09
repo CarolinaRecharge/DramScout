@@ -126,13 +126,20 @@ export default function StorePortal() {
   }
 
   const currentPath = location.pathname
+  const storeRole = storeProfile?.store_role ?? 'owner'
+  const isCashier = storeRole === 'cashier'
 
-  const navItems = [
+  // The "real" store ID used for all lottery data operations.
+  // Sub-accounts (manager/cashier) point to their parent owner's ID.
+  const effectiveStoreId = storeProfile?.parent_store_id ?? storeProfile?.id ?? null
+
+  const allNavItems = [
     { label: 'Dashboard', path: '/store' },
     { label: 'Lotteries', path: '/store/lotteries' },
     { label: 'Cashier', path: '/store/cashier' },
-    { label: 'Barrel Picks', path: '/store/barrel-picks' },
+    { label: 'Barrel Picks', path: '/store/barrel-picks', ownerOnly: true },
   ]
+  const navItems = allNavItems.filter(item => !item.ownerOnly || !isCashier)
 
   return (
     <div className="store-root">
@@ -148,6 +155,11 @@ export default function StorePortal() {
               <span className="portal-store-name">
                 {storeProfile.store_name}
                 {storeProfile.store_number && ` · #${storeProfile.store_number}`}
+                {storeRole !== 'owner' && (
+                  <span style={{ marginLeft: 8, fontSize: 9, letterSpacing: 2, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                    {storeRole}
+                  </span>
+                )}
               </span>
             )}
             {session?.user?.email === 'danielk.black95@gmail.com' && (
@@ -178,8 +190,8 @@ export default function StorePortal() {
         <div className="portal-content">
           <Routes>
             <Route index element={<StoreDashboard storeProfile={storeProfile} />} />
-            <Route path="lotteries" element={<StoreLotteries storeProfile={storeProfile} />} />
-            <Route path="cashier" element={<StoreCashier storeProfile={storeProfile} />} />
+            <Route path="lotteries" element={<StoreLotteries storeProfile={storeProfile} storeRole={storeRole} effectiveStoreId={effectiveStoreId} />} />
+            <Route path="cashier" element={<StoreCashier storeProfile={storeProfile} effectiveStoreId={effectiveStoreId} />} />
             <Route path="barrel-picks" element={<BarrelPicksManager storeProfile={storeProfile} session={session} />} />
             <Route path="barrel-picks/new" element={<BarrelPickForm storeProfile={storeProfile} session={session} />} />
             <Route path="barrel-picks/:id/edit" element={<BarrelPickForm storeProfile={storeProfile} session={session} />} />

@@ -31,9 +31,18 @@ export default async function handler(req, res) {
   const { data: { user }, error: authError } = await supabase.auth.getUser(jwt)
   if (authError || !user) return res.status(401).json({ error: 'Invalid session' })
 
+  // Resolve effective store ID: sub-accounts (manager/cashier) use their
+  // parent owner's store_profiles.id so lottery data stays unified per store.
+  const { data: storeProfile } = await supabase
+    .from('store_profiles')
+    .select('parent_store_id')
+    .eq('id', user.id)
+    .single()
+  const effectiveStoreId = storeProfile?.parent_store_id ?? user.id
+
   // Verify program exists and belongs to this store.
-  // RLS policy "store_own_programs" (store_id = auth.uid()) handles the
-  // ownership check — no row returned means either not found or not owned.
+  // RLS policy "store_own_programs" uses get_effective_store_id() — handles
+  // both owner and sub-account sessions automatically.
   const { data: program, error: progError } = await supabase
     .from('lottery_programs')
     .select('id, store_id, status, bottle_name, draw_date')
@@ -45,13 +54,13 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'This lottery has already been drawn' })
   }
 
-  // Insert token — RLS allows because we set store_id = auth.uid()
+  // Insert token — store_id is always the owner's store_profiles.id
   let token, inserted
   for (let attempt = 0; attempt < 3; attempt++) {
     token = generateToken()
     const { data, error } = await supabase
       .from('lottery_tokens')
-      .insert({ token, program_id, store_id: user.id })
+      .insert({ token, program_id, store_id: effectiveStoreId })
       .select()
       .single()
     if (!error) { inserted = data; break }

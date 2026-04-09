@@ -198,7 +198,7 @@ const styles = `
   }
 `
 
-export default function StoreCashier({ storeProfile }) {
+export default function StoreCashier({ storeProfile, effectiveStoreId }) {
   const [programs, setPrograms] = useState([])
   const [selectedProgramId, setSelectedProgramId] = useState('')
   const [generating, setGenerating] = useState(false)
