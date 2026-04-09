@@ -30,7 +30,8 @@ async function handleList(storeId, res) {
     .from('barrel_picks')
     .select(`
       *,
-      barrel_pick_reports ( id, report_type )
+      barrel_pick_reports ( id, report_type ),
+      barrel_pick_comments ( id )
     `)
     .eq('store_id', storeId)
     .order('created_at', { ascending: false })
@@ -46,6 +47,7 @@ async function handleList(storeId, res) {
       acc[r.report_type] = (acc[r.report_type] || 0) + 1
       return acc
     }, {}),
+    comments_count: (pick.barrel_pick_comments || []).length,
   }))
 
   return res.status(200).json({ picks })

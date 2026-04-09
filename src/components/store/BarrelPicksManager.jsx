@@ -562,6 +562,13 @@ export default function BarrelPicksManager({ storeProfile, session }) {
                     </span>
                   </span>
 
+                  {/* Comment count */}
+                  {pick.comments_count > 0 && (
+                    <span className="bpm-meta-item">
+                      {pick.comments_count} {pick.comments_count === 1 ? 'comment' : 'comments'}
+                    </span>
+                  )}
+
                   {/* Status dropdown */}
                   <select
                     className="bpm-status-select"

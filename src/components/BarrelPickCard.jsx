@@ -233,6 +233,17 @@ const CARD_STYLES = `
     padding-left: 11px;
   }
 
+  .bp-comment-count {
+    font-family: 'DM Mono', 'Courier Prime', monospace;
+    font-size: 9px;
+    color: var(--ghost);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
   /* ── Report button ── */
   .bp-report-btn {
     font-family: 'DM Mono', 'Courier Prime', monospace;
@@ -786,6 +797,15 @@ export default function BarrelPickCard({ pick, session, onReported, defaultDetai
                 <div className="bp-store-dist">{pick.distance_miles} mi away</div>
               )}
             </div>
+
+            {pick.comments_count > 0 && (
+              <span className="bp-comment-count">
+                <svg width="10" height="10" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+                  <path d="M2 2h10v8H8l-3 2v-2H2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill="none"/>
+                </svg>
+                {pick.comments_count}
+              </span>
+            )}
 
             {/* Community report */}
             <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
