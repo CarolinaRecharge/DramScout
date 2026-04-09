@@ -219,12 +219,6 @@ export default function ScoutTab({ searchQuery = '' }) {
     }
   }, [location, locationDenied, distilleryFilter])
 
-  function handleReported(pickId, reportCounts) {
-    setPicks(prev => prev.map(p =>
-      p.id === pickId ? { ...p, reports_count: reportCounts } : p
-    ))
-  }
-
   // Client-side search filter
   const filteredPicks = searchQuery
     ? picks.filter(p => {
@@ -294,7 +288,7 @@ export default function ScoutTab({ searchQuery = '' }) {
                 <BarrelPickCard
                   key={pick.id}
                   pick={pick}
-                  onReported={handleReported}
+
                 />
               ))}
               {hasMore && !searchQuery && (

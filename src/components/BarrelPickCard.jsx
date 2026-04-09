@@ -244,55 +244,6 @@ const CARD_STYLES = `
     flex-shrink: 0;
   }
 
-  /* ── Report button ── */
-  .bp-report-btn {
-    font-family: 'DM Mono', 'Courier Prime', monospace;
-    font-size: 9px;
-    letter-spacing: 0.05em;
-    color: var(--ghost);
-    background: none;
-    border: 1px solid var(--worn);
-    border-radius: 4px;
-    padding: 5px 8px;
-    cursor: pointer;
-    transition: color 0.2s, border-color 0.2s;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .bp-report-btn:hover { color: var(--gold); border-color: var(--gold); }
-  .bp-report-btn.reported { color: var(--ghost); border-color: var(--rule); cursor: default; }
-
-  .bp-report-popover {
-    position: absolute;
-    right: 0;
-    bottom: calc(100% + 6px);
-    background: var(--card-2);
-    border: 1px solid var(--worn);
-    border-radius: 8px;
-    padding: 6px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    z-index: 10;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-    min-width: 150px;
-  }
-  .bp-report-option {
-    font-family: 'DM Mono', 'Courier Prime', monospace;
-    font-size: 9px;
-    letter-spacing: 0.05em;
-    background: none;
-    border: none;
-    color: var(--parchment);
-    padding: 6px 10px;
-    cursor: pointer;
-    text-align: left;
-    border-radius: 4px;
-    transition: background 0.15s;
-    white-space: nowrap;
-  }
-  .bp-report-option:hover { background: var(--card); }
-
   /* ── Lightbox ── */
   .bp-lightbox {
     position: fixed;
@@ -577,14 +528,11 @@ function GlencairnIcon({ color = 'var(--worn)' }) {
   )
 }
 
-export default function BarrelPickCard({ pick, session, onReported, defaultDetailOpen, onDetailClose }) {
+export default function BarrelPickCard({ pick, session, defaultDetailOpen, onDetailClose }) {
   const [photoIndex, setPhotoIndex] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
   const [notesExpanded, setNotesExpanded] = useState(false)
-  const [reportOpen, setReportOpen] = useState(false)
-  const [reported, setReported] = useState(false)
-  const [reportLoading, setReportLoading] = useState(false)
   const [detailOpen, setDetailOpen] = useState(defaultDetailOpen || false)
   const [detailPhotoIndex, setDetailPhotoIndex] = useState(0)
   const [comments, setComments] = useState([])
@@ -654,37 +602,6 @@ export default function BarrelPickCard({ pick, session, onReported, defaultDetai
   function advancePhoto() {
     if (photos.length <= 1) return
     setPhotoIndex(i => (i + 1) % photos.length)
-  }
-
-  async function submitReport(reportType) {
-    if (reportLoading || reported) return
-    setReportLoading(true)
-    setReportOpen(false)
-    try {
-      const { data: { session: sess } } = await supabase.auth.getSession()
-      const token = sess?.access_token
-      if (!token) {
-        alert('Sign in to report availability.')
-        setReportLoading(false)
-        return
-      }
-      const res = await fetch(`/api/barrel-picks/${pick.id}/report`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ report_type: reportType }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        setReported(true)
-        onReported && onReported(pick.id, data.reports_count)
-      }
-    } catch (err) {
-      console.error('report error:', err)
-    }
-    setReportLoading(false)
   }
 
   const row2Parts = [pick.distillery, pick.expression].filter(Boolean)
@@ -807,27 +724,6 @@ export default function BarrelPickCard({ pick, session, onReported, defaultDetai
               </span>
             )}
 
-            {/* Community report */}
-            <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-              {reported ? (
-                <button className="bp-report-btn reported">Reported ✓</button>
-              ) : (
-                <button
-                  className="bp-report-btn"
-                  onClick={() => setReportOpen(o => !o)}
-                  disabled={reportLoading}
-                >
-                  👍 Still there?
-                </button>
-              )}
-              {reportOpen && !reported && (
-                <div className="bp-report-popover">
-                  <button className="bp-report-option" onClick={() => submitReport('still_available')}>✓ Still Available</button>
-                  <button className="bp-report-option" onClick={() => submitReport('low_stock')}>↓ Going Fast</button>
-                  <button className="bp-report-option" onClick={() => submitReport('sold_out')}>✗ Sold Out</button>
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </div>
