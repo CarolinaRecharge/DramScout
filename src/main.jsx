@@ -7,6 +7,12 @@ import StoreLogin from './pages/store/StoreLogin.jsx'
 import StorePortal from './pages/store/StorePortal.jsx'
 import StoreAuthGuard from './components/StoreAuthGuard.jsx'
 import ClaimPage from './pages/ClaimPage.jsx'
+import { AuthProvider } from './context/AuthContext.jsx'
+import Signup from './pages/Signup.jsx'
+import Login from './pages/Login.jsx'
+import ForgotPassword from './pages/ForgotPassword.jsx'
+import ResetPassword from './pages/ResetPassword.jsx'
+import AuthConfirm from './pages/AuthConfirm.jsx'
 
 class ErrorBoundary extends React.Component {
   state = { hasError: false }
@@ -28,16 +34,30 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
     <BrowserRouter>
-      <Routes>
-        <Route path="/store/login" element={<StoreLogin />} />
-        <Route path="/store/*" element={
-          <StoreAuthGuard>
-            <StorePortal />
-          </StoreAuthGuard>
-        } />
-        <Route path="/claim/:token" element={<ClaimPage />} />
-        <Route path="*" element={<App />} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          {/* Consumer auth routes */}
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/auth/confirm" element={<AuthConfirm />} />
+
+          {/* Store portal (separate auth system) */}
+          <Route path="/store/login" element={<StoreLogin />} />
+          <Route path="/store/*" element={
+            <StoreAuthGuard>
+              <StorePortal />
+            </StoreAuthGuard>
+          } />
+
+          {/* Lottery claim */}
+          <Route path="/claim/:token" element={<ClaimPage />} />
+
+          {/* Main app (catch-all) */}
+          <Route path="*" element={<App />} />
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
     <Analytics />
     </ErrorBoundary>
